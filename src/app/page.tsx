@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Robot } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import HostGameDialog from '@/components/lobby/HostGameDialog';
 import JoinGameDialog from '@/components/lobby/JoinGameDialog';
 
@@ -21,12 +21,12 @@ export default function Home() {
     localStorage.setItem('playerName', e.target.value);
   };
   
-  useState(() => {
+  useEffect(() => {
     const savedName = localStorage.getItem('playerName');
     if (savedName) {
       setName(savedName);
     }
-  });
+  }, []);
 
   const isNameValid = name.trim().length > 1;
 
@@ -75,7 +75,7 @@ export default function Home() {
       </Card>
       
       <p className="text-sm text-muted-foreground mt-8 flex items-center gap-2">
-        <Robot size={16} /> AI opponents and strategy advisor powered by Google AI.
+        <Bot size={16} /> AI opponents and strategy advisor powered by Google AI.
       </p>
 
       <HostGameDialog
