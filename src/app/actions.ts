@@ -18,48 +18,53 @@ function generateRoomCode(): string {
     return code;
 }
 
-export async function createRoom(playerName: string, settings: GameSettings): Promise<string> {
-    const roomsCol = collection(db, 'games');
-    let roomCode = '';
-    let roomExists = true;
+export async function createRoom(playerName: string, settings: GameSettings): Promise<{ roomCode: string | null; error: string | null; }> {
+    try {
+        const roomsCol = collection(db, 'games');
+        let roomCode = '';
+        let roomExists = true;
 
-    while (roomExists) {
-        roomCode = generateRoomCode();
-        const roomDoc = doc(db, 'games', roomCode);
-        const roomSnapshot = await getDoc(roomDoc);
-        roomExists = roomSnapshot.exists();
+        while (roomExists) {
+            roomCode = generateRoomCode();
+            const roomDoc = doc(db, 'games', roomCode);
+            const roomSnapshot = await getDoc(roomDoc);
+            roomExists = roomSnapshot.exists();
+        }
+
+        const hostPlayer: Player = {
+            id: 'host-' + Date.now(),
+            name: playerName,
+            isBot: false,
+            color: 'red',
+            playerIndex: 0
+        };
+
+        const { board, verbodenBarricades } = generateBoard();
+
+        const initialGameState: GameState = {
+            id: roomCode,
+            players: [hostPlayer],
+            pawns: [],
+            barricades: [],
+            board,
+            verbodenBarricades,
+            settings,
+            status: 'lobby',
+            hostId: hostPlayer.id,
+            currentPlayerIndex: 0,
+            diceRoll: 0,
+            lastRolls: {},
+            opgepakteBarricadePos: null,
+            history: [],
+            createdAt: serverTimestamp(),
+        };
+
+        await setDoc(doc(roomsCol, roomCode), initialGameState);
+        return { roomCode, error: null };
+    } catch (error: any) {
+        console.error("Error creating room:", error);
+        return { roomCode: null, error: error.message };
     }
-    
-    const hostPlayer: Player = {
-        id: 'host-' + Date.now(), // Simplified ID for now
-        name: playerName,
-        isBot: false,
-        color: 'red', // Will be assigned on game start
-        playerIndex: 0
-    };
-
-    const { board, verbodenBarricades } = generateBoard();
-
-    const initialGameState: GameState = {
-        id: roomCode,
-        players: [hostPlayer],
-        pawns: [],
-        barricades: [],
-        board,
-        verbodenBarricades,
-        settings,
-        status: 'lobby',
-        hostId: hostPlayer.id,
-        currentPlayerIndex: 0,
-        diceRoll: 0,
-        lastRolls: {},
-        opgepakteBarricadePos: null,
-        history: [],
-        createdAt: serverTimestamp(),
-    };
-
-    await setDoc(doc(roomsCol, roomCode), initialGameState);
-    return roomCode;
 }
 
 

@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { GameSettings } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface HostGameDialogProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface HostGameDialogProps {
 
 export default function HostGameDialog({ isOpen, setIsOpen, playerName }: HostGameDialogProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [totalPlayers, setTotalPlayers] = useState(2);
   const [botCount, setBotCount] = useState(1);
@@ -49,14 +51,22 @@ export default function HostGameDialog({ isOpen, setIsOpen, playerName }: HostGa
   const handleHostGame = async () => {
     setIsLoading(true);
     try {
-      const roomCode = await createRoom(playerName, settings);
+      const { roomCode, error } = await createRoom(playerName, settings);
       if (roomCode) {
         router.push(`/game/${roomCode}`);
       } else {
-        // Handle error display
-        console.error("Failed to create room.");
+        toast({
+          title: "Error Creating Room",
+          description: error || "An unknown error occurred.",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
       console.error("Error hosting game:", error);
     } finally {
       setIsLoading(false);
