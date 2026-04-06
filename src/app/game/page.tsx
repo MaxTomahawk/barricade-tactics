@@ -57,31 +57,38 @@ function GamePageContent() {
       setIsLoading(false);
     };
 
+    let active = true;
+    let fallbackTimeout: ReturnType<typeof setTimeout>;
+
     if (session.role === 'host') {
-      const host = startHostSession({
-        roomId,
-        gameName: session.gameName || 'Untitled Room',
-        hostName: session.playerName || 'Host',
-        onGameStateUpdated,
-        onError: onPeerError,
-      });
-      setHostSession(host);
-      shutdownRef.current = host.shutdown;
-      return () => {
-        shutdownRef.current?.();
-        shutdownRef.current = null;
-      };
+      fallbackTimeout = setTimeout(() => {
+        if (!active) return;
+        const host = startHostSession({
+          roomId,
+          gameName: session.gameName || 'Untitled Room',
+          hostName: session.playerName || 'Host',
+          onGameStateUpdated,
+          onError: onPeerError,
+        });
+        setHostSession(host);
+        shutdownRef.current = host.shutdown;
+      }, 50);
+    } else {
+      fallbackTimeout = setTimeout(() => {
+        if (!active) return;
+        const guest = startGuestSession({
+          roomId,
+          playerName: session.playerName || 'Guest',
+          onGameStateUpdated,
+          onError: onPeerError,
+        });
+        shutdownRef.current = guest.shutdown;
+      }, 50);
     }
 
-    const guest = startGuestSession({
-      roomId,
-      playerName: session.playerName || 'Guest',
-      onGameStateUpdated,
-      onError: onPeerError,
-    });
-    shutdownRef.current = guest.shutdown;
-
     return () => {
+      active = false;
+      clearTimeout(fallbackTimeout);
       shutdownRef.current?.();
       shutdownRef.current = null;
     };

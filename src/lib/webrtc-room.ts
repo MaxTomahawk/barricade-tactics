@@ -32,7 +32,6 @@ export type HostSession = {
 
 export type GuestSession = {
   peer: Peer;
-  hostConnection: DataConnection;
   shutdown: () => void;
 };
 
@@ -77,6 +76,13 @@ export function startHostSession(args: {
 
   const peer = new Peer(game.id);
   const connections = new Map<string, DataConnection>();
+
+  let hostOpenTimeout = setTimeout(() => {
+    if (!peer.open && !peer.disconnected) {
+      args.onError('Failed to start as Host. PeerJS servers might be rate-limiting you.');
+      peer.destroy();
+    }
+  }, 10000);
 
   const broadcast = () => {
     const publicGame: GameState = {
@@ -124,6 +130,7 @@ export function startHostSession(args: {
   };
 
   peer.on('open', () => {
+    clearTimeout(hostOpenTimeout);
     broadcast();
   });
 
@@ -183,63 +190,78 @@ export function startGuestSession(args: {
   onError: (message: string) => void;
 }): GuestSession {
   const peer = new Peer();
-  let connectionTimeout: ReturnType<typeof setTimeout>;
-  let stateTimeout: ReturnType<typeof setTimeout>;
-  const hostConnection = peer.connect(sanitizeRoomId(args.roomId), {
-    reliable: true,
-  });
-
-  connectionTimeout = setTimeout(() => {
-    if (!hostConnection.open) {
-      args.onError('Connection to host timed out. Room code might be wrong or host is offline.');
+  let peerOpenTimeout = setTimeout(() => {
+    if (!peer.open && !peer.disconnected) {
+      args.onError('Failed to connect to the Peer mapping server.');
       peer.destroy();
     }
   }, 10000);
 
-  hostConnection.on('open', () => {
-    clearTimeout(connectionTimeout);
+  let connectionTimeout: ReturnType<typeof setTimeout>;
+  let stateTimeout: ReturnType<typeof setTimeout>;
+  let hostConnection: DataConnection | null = null;
+
+  peer.on('open', () => {
+    clearTimeout(peerOpenTimeout);
     
-    // Start timeout for receiving the INITIAL game state
-    stateTimeout = setTimeout(() => {
-      args.onError('Host accepted connection but never sent game data. Host might be frozen.');
-      hostConnection.close();
+    // Now that guest peer is open, we can safely connect to host
+    hostConnection = peer.connect(sanitizeRoomId(args.roomId), {
+      reliable: true,
+    });
+
+    connectionTimeout = setTimeout(() => {
+      if (hostConnection && !hostConnection.open) {
+        args.onError('Connection to host timed out. Room code might be wrong or host is offline.');
+        peer.destroy();
+      }
     }, 10000);
 
-    // Send join request with tiny delay to ensure Data Channel queue is ready
-    setTimeout(() => {
-      const joinMsg: ClientMessage = {
-        type: 'joinRequest',
-        playerName: args.playerName.trim(),
-      };
-      hostConnection.send(joinMsg);
-    }, 200);
-  });
+    hostConnection.on('open', () => {
+      clearTimeout(connectionTimeout);
+      
+      stateTimeout = setTimeout(() => {
+        args.onError('Host accepted connection but never sent game data. Host might be frozen.');
+        if (hostConnection) hostConnection.close();
+      }, 10000);
 
-  hostConnection.on('data', (raw) => {
-    const msg = raw as ClientMessage;
-    if (msg?.type === 'gameStateUpdated') {
-      clearTimeout(stateTimeout); // Clear it once we get state
-      args.onGameStateUpdated(msg.game);
-    } else if (msg?.type === 'joinRejected') {
-      args.onError(msg.reason || 'Failed to join room.');
-      hostConnection.close();
-    }
-  });
+      setTimeout(() => {
+        const joinMsg: ClientMessage = {
+          type: 'joinRequest',
+          playerName: args.playerName.trim(),
+        };
+        if (hostConnection) hostConnection.send(joinMsg);
+      }, 200);
+    });
 
-  hostConnection.on('error', (err) => {
-    clearTimeout(connectionTimeout);
-    args.onError(err.message || 'Failed to connect to host');
-  });
+    hostConnection.on('data', (raw) => {
+      const msg = raw as ClientMessage;
+      if (msg?.type === 'gameStateUpdated') {
+        clearTimeout(stateTimeout); 
+        args.onGameStateUpdated(msg.game);
+      } else if (msg?.type === 'joinRejected') {
+        args.onError(msg.reason || 'Failed to join room.');
+        if (hostConnection) hostConnection.close();
+      }
+    });
 
-  hostConnection.on('close', () => {
-    clearTimeout(connectionTimeout);
-    args.onError('Host disconnected or removed you.');
+    hostConnection.on('error', (err) => {
+      clearTimeout(connectionTimeout);
+      args.onError(err.message || 'Failed to connect to host');
+    });
+
+    hostConnection.on('close', () => {
+      clearTimeout(connectionTimeout);
+      args.onError('Host disconnected or removed you.');
+    });
   });
 
   peer.on('error', (err: any) => {
+    clearTimeout(peerOpenTimeout);
     clearTimeout(connectionTimeout);
     if (err.type === 'peer-unavailable') {
       args.onError("Host room doesn't exist. Please check the code.");
+    } else if (err.type === 'unavailable-id') {
+      args.onError("PeerJS ID taken. Avoid refreshing rapidly.");
     } else {
       args.onError(err.message || 'Peer connection error');
     }
@@ -247,10 +269,11 @@ export function startGuestSession(args: {
 
   return {
     peer,
-    hostConnection,
     shutdown: () => {
+      clearTimeout(peerOpenTimeout);
       clearTimeout(connectionTimeout);
-      hostConnection.close();
+      clearTimeout(stateTimeout);
+      if (hostConnection) hostConnection.close();
       peer.destroy();
     },
   };
