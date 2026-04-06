@@ -146,6 +146,28 @@ function GamePageContent() {
         Copy Invite Link
       </button>
 
+      {isHostUser && (
+        <div className="mb-10 w-full max-w-md mx-auto flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
+          {(!game.slots.some(s => s.type === 'open') && game.slots.some(s => s.type === 'player' || s.type === 'bot')) ? (
+            <button
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-12 rounded-xl shadow-xl transition-all hover:scale-105 active:scale-95 text-2xl tracking-wide uppercase"
+              onClick={() => alert("Game engine transition not yet implemented. But the Lobby is fully locked and ready to start!")}
+            >
+              Start Game
+            </button>
+          ) : (
+            <div className="w-full p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 text-center shadow-inner">
+              <p className="text-orange-600 dark:text-orange-400 text-sm font-bold tracking-widest uppercase mb-1">
+                Awaiting Players
+              </p>
+              <p className="text-muted-foreground text-xs font-medium">
+                Ensure no slots are left "Open", and that you have at least 1 Opponent.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="w-full max-w-2xl">
         <h3 className="text-xl font-semibold mb-6">Players & Slots</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -207,28 +229,6 @@ function GamePageContent() {
             );
           })}
         </div>
-
-        {isHostUser && (
-          <div className="mt-12 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
-            {(!game.slots.some(s => s.type === 'open') && game.slots.some(s => s.type === 'player' || s.type === 'bot')) ? (
-              <button
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 px-12 rounded-full shadow-xl transition-all hover:scale-105 active:scale-95 text-xl tracking-wide"
-                onClick={() => alert("Game engine transition not yet implemented. But the Lobby is fully locked and ready to start!")}
-              >
-                Start Game Outpost
-              </button>
-            ) : (
-              <div className="p-4 rounded-lg bg-muted border border-border text-center">
-                <p className="text-muted-foreground text-sm font-medium">
-                  Cannot start game yet.
-                </p>
-                <p className="text-muted-foreground text-xs mt-1">
-                  Ensure no slots are left "Open", and that you have at least 1 opponent (Bot or Player).
-                </p>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </main>
   );
