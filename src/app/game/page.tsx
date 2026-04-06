@@ -88,14 +88,14 @@ function GamePageContent() {
   const lastProcessedRef = useRef<string>('');
 
   useEffect(() => {
-    if (!roomId || signaledRef.current) return;
-    signaledRef.current = true;
-
     if (!roomId) {
       setIsLoading(false);
       setError('Missing roomId in URL.');
       return;
     }
+
+    if (signaledRef.current) return;
+    signaledRef.current = true;
 
     const raw = sessionStorage.getItem('barricadeSession');
     if (!raw) {
@@ -118,12 +118,18 @@ function GamePageContent() {
         setIsLoading(false);
       }
     };
+
     const onPeerError = (message: string) => {
       setError(message);
       setIsLoading(false);
+      
       // If critical error, redirect home after a short delay
-      if (message.includes('not found') || message.includes('session')) {
-         setTimeout(() => router.push('/'), 3000);
+      if (message.includes('not found') || message.includes('session') || message.includes('ID') || message.includes('already taken')) {
+         // Specific helpful error for collisions
+         if (message.includes('taken') || message.includes('ID')) {
+             setError("A game with this code is already active. Please try a different code or return to the main menu.");
+         }
+         setTimeout(() => router.push('/'), 5000);
       }
     };
 
@@ -133,10 +139,26 @@ function GamePageContent() {
     if (session.role === 'host') {
       fallbackTimeout = setTimeout(() => {
         if (!active) return;
+
+        let initialGame: GameState | undefined = undefined;
+        const cacheRaw = localStorage.getItem(`barricade_host_cache_${roomId}`);
+        if (cacheRaw) {
+          try {
+            const cached = JSON.parse(cacheRaw);
+            if (cached.id === roomId) {
+              initialGame = cached;
+              console.log("Resuming from cache for room", roomId);
+            }
+          } catch(e) {
+            console.error("Failed to parse game cache", e);
+          }
+        }
+
         const host = startHostSession({
           roomId,
           gameName: session.gameName || 'Untitled Room',
           hostName: session.playerName || 'Host',
+          initialGame,
           onGameStateUpdated,
           onError: onPeerError,
           onStatusUpdated: setSignalingStatus,
@@ -168,6 +190,12 @@ function GamePageContent() {
       shutdownRef.current = null;
     };
   }, [roomId]);
+
+  useEffect(() => {
+    if (game && hostSession) {
+        localStorage.setItem(`barricade_host_cache_${game.id}`, JSON.stringify(game));
+    }
+  }, [game, hostSession]);
 
   const inviteUrl = useMemo(() => {
     if (!roomId || typeof window === 'undefined') return '';

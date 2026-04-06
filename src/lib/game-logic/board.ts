@@ -38,27 +38,44 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
             const available: number[] = [];
             for (let d = 3; d <= maxDist; d += 3) available.push(d);
             
+            // To ensure ONLY T-junctions, we must avoid shared columns with row R+2
+            const takenByPreviousRow = new Set(bridgesByRow[r + 2] || []);
+            
+            const validAvailable = available.filter(d => !takenByPreviousRow.has(11 - d) && !takenByPreviousRow.has(11 + d));
+            
             const count = Math.random() > 0.4 ? 2 : 1;
             
-            for (let i = available.length - 1; i > 0; i--) {
+            for (let i = validAvailable.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [available[i], available[j]] = [available[j], available[i]];
+                [validAvailable[i], validAvailable[j]] = [validAvailable[j], validAvailable[i]];
             }
             
-            for (let i = 0; i < count && i < available.length; i++) {
-                cols.add(11 - available[i]);
-                cols.add(11 + available[i]);
+            for (let i = 0; i < count && i < validAvailable.length; i++) {
+                cols.add(11 - validAvailable[i]);
+                cols.add(11 + validAvailable[i]);
             }
             
-            // Ensure every start column has a potential vertical path nearby at row 9
+            // For row 9, we must connect to startCols, BUT standard boards use T-junctions
+            // where entry point is its own vertical path or doesn't X.
             if (r === 9) {
+                // If we add startCols, we must be careful. For now, let's just use them
+                // but ensure they don't have Up-AND-Down at the EXACT same node in Step 3.
                 for (const sc of startCols) {
                     cols.add(sc);
                 }
+            } else if (Math.random() > 0.7 && !takenByPreviousRow.has(11)) {
+                cols.add(11);
             }
-            
-            if (Math.random() > 0.7) cols.add(11);
-            if (cols.size === 0) cols.add(11);
+            if (cols.size === 0) {
+               // Fallback: pick one d not in takenByPreviousRow
+               const fallbackDist = [3, 6, 9].find(d => !takenByPreviousRow.has(11 - d) && !takenByPreviousRow.has(11 + d));
+               if (fallbackDist !== undefined) {
+                   cols.add(11 - fallbackDist);
+                   cols.add(11 + fallbackDist);
+               } else {
+                   cols.add(11); // Last resort
+               }
+            }
         }
         bridgesByRow[r] = Array.from(cols).sort((a,b) => a-b);
     }
@@ -72,11 +89,30 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
 
     // 3. Instantiate horizontal rows
     for (const r of [10, 8, 6, 4, 2]) {
-        const U = [...bridgesByRow[r+1], ...bridgesByRow[r-1]];
-        const minC = Math.min(...U);
-        const maxC = Math.max(...U);
+        const upBridges = new Set(bridgesByRow[r - 1] || []);
+        const downBridges = new Set(bridgesByRow[r + 1] || []);
+        const allConnectors = [...upBridges, ...downBridges];
+        
+        const minC = Math.min(...allConnectors);
+        const maxC = Math.max(...allConnectors);
+        
         for (let c = minC; c <= maxC; c++) {
-            knoppen[`${r},${c}`] = { r, c, buren: [], is_finish: false, is_start: false, speler_start: -1 };
+            const hasUp = upBridges.has(c);
+            const hasDown = downBridges.has(c);
+            
+            // If it has BOTH, it's an X if it also connects horizontally.
+            // We BREAK the horizontal connection at this point to keep it a T or Path.
+            const isXCrossingPoint = hasUp && hasDown;
+            
+            if (isXCrossingPoint) {
+                // Instantiate the node so vertical paths can pass, but it won't connect L/R
+                // actually Step 6 handles neighbors Cardinal directions.
+                // If we want ONLY T-junctions, this node MUST NOT have horizontal neighbors.
+                // We'll mark it special or just ensure Step 6 knows.
+                knoppen[`${r},${c}`] = { r, c, buren: [], is_finish: false, is_start: false, speler_start: -1, is_t_junction_break: true } as any;
+            } else {
+                knoppen[`${r},${c}`] = { r, c, buren: [], is_finish: false, is_start: false, speler_start: -1 };
+            }
         }
     }
 
@@ -111,14 +147,33 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
     // 6. Connect neighbors — SKIP start nodes (they only connect to their entry point)
     for (const posKey in knoppen) {
         const knoop = knoppen[posKey];
-        if (knoop.is_start) continue; // Start nodes only use their manually-set entry connection
+        if (knoop.is_start) continue; 
         const { r, c } = knoop;
-        const mogelijkeBuren = [{ r: r - 1, c }, { r: r + 1, c }, { r: r, c: c - 1 }, { r: r, c: c + 1 }];
-        for (const buurPos of mogelijkeBuren) {
+        
+        // Horizontal neighbors
+        const horBuren = [{ r, c: c - 1 }, { r, c: c + 1 }];
+        for (const buurPos of horBuren) {
+            // Only connect horizontally if NEITHER node is a T-junction-break
+            if ((knoop as any).is_t_junction_break) continue;
+            
             const buurKey = `${buurPos.r},${buurPos.c}`;
             const buurNode = knoppen[buurKey];
-            if (buurNode && !buurNode.is_start && !knoop.buren.find((b: BoardNode) => b.r === buurPos.r && b.c === buurPos.c)) {
-                knoop.buren.push({ r: buurPos.r, c: buurPos.c });
+            if (buurNode && !buurNode.is_start && !(buurNode as any).is_t_junction_break) {
+                if (!knoop.buren.find((b: BoardNode) => b.r === buurPos.r && b.c === buurPos.c)) {
+                    knoop.buren.push({ r: buurPos.r, c: buurPos.c });
+                }
+            }
+        }
+        
+        // Vertical neighbors
+        const verBuren = [{ r: r - 1, c }, { r: r + 1, c }];
+        for (const buurPos of verBuren) {
+            const buurKey = `${buurPos.r},${buurPos.c}`;
+            const buurNode = knoppen[buurKey];
+            if (buurNode && !buurNode.is_start) {
+                if (!knoop.buren.find((b: BoardNode) => b.r === buurPos.r && b.c === buurPos.c)) {
+                    knoop.buren.push({ r: buurPos.r, c: buurPos.c });
+                }
             }
         }
     }
