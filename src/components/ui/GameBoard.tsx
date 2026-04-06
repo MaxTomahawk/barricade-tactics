@@ -356,8 +356,8 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
 
           {/* Draw Barricades */}
           {state.barricades.map((b, idx) => {
-             const cx = b.c;
-             const cy = b.r;
+             const cx = b.c + 0.5;
+             const cy = b.r + 0.5;
              return (
                <rect 
                   key={`barricade-${idx}`} 
@@ -375,7 +375,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
           {/* Draw Pawns */}
            {state.pionnen.map((p) => {
              if (p.isFinished) return null;
-             const pos = animPos[p.id] || { cx: p.pos.c, cy: p.pos.r, arcOffset: 0 };
+             const pos = animPos[p.id] || { cx: p.pos.c + 0.5, cy: p.pos.r + 0.5, arcOffset: 0 };
              return (
                  <g 
                     key={`pawn-${p.id}`} 
@@ -395,7 +395,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
           {(state.activePlayerIndices || []).map((slotId, idx) => {
               const roll = state.laatsteWorpen[slotId];
               if (!roll) return null;
-              const cx = state.startCols?.[idx] ?? 11;
+              const cx = (state.startCols?.[idx] ?? 11) + 0.5;
              const nameStr = slots?.[slotId]?.playerName || (slots?.[slotId]?.type === 'bot' ? 'Bot' : `Player ${slotId+1}`);
              const isActive = state.pionnen.some(p => p.playerIndex === slotId);
              

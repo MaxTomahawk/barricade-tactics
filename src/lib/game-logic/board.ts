@@ -30,6 +30,17 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
         const cols = new Set<number>();
         if (r === 1) {
             cols.add(11);
+        } else if (r === 9 && startCols.length > 1) {
+            // Row 9 strategy: place bridges exactly between start columns for fairness
+            for (let i = 0; i < startCols.length - 1; i++) {
+                const mid = Math.floor((startCols[i] + startCols[i+1]) / 2);
+                cols.add(mid);
+            }
+            // Add side bridges to avoid bottlenecks if we have few players
+            if (startCols.length < 3) {
+                cols.add(2);
+                cols.add(20);
+            }
         } else {
             let maxDist = 9;
             if (r === 3) maxDist = 3; 
@@ -40,11 +51,10 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
             
             // To ensure ONLY T-junctions, we must avoid shared columns with row R+2
             const takenByPreviousRow = new Set(bridgesByRow[r + 2] || []);
-            
             const validAvailable = available.filter(d => !takenByPreviousRow.has(11 - d) && !takenByPreviousRow.has(11 + d));
             
-            const count = Math.random() > 0.4 ? 2 : 1;
-            
+            // Pick a count, then always mirror the choice
+            const count = Math.random() > 0.5 ? 2 : 1;
             for (let i = validAvailable.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [validAvailable[i], validAvailable[j]] = [validAvailable[j], validAvailable[i]];
@@ -54,19 +64,10 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
                 cols.add(11 - validAvailable[i]);
                 cols.add(11 + validAvailable[i]);
             }
-            
-            // For row 9, we used to add startCols, but the user wants NO vertical path
-            // directly above the entries. So we just skip that.
-            
+
+            // Fallback if no bridges survived filters
             if (cols.size === 0) {
-               // Fallback: pick one d not in takenByPreviousRow
-               const fallbackDist = [3, 6, 9].find(d => !takenByPreviousRow.has(11 - d) && !takenByPreviousRow.has(11 + d));
-               if (fallbackDist !== undefined) {
-                   cols.add(11 - fallbackDist);
-                   cols.add(11 + fallbackDist);
-               } else {
-                   cols.add(11); // Last resort
-               }
+               cols.add(11); 
             }
         }
         bridgesByRow[r] = Array.from(cols).sort((a,b) => a-b);
@@ -170,6 +171,38 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
         }
     }
 
+    // 7. Path Fairness Validation
+    // Verify shortest path from each start entry row node (row 10) to finish (row 0)
+    const entryPoints = startCols.map(c => ({ r: 10, c }));
+    const distances = entryPoints.map(start => {
+        const q: { pos: Position, dist: number }[] = [{ pos: start, dist: 0 }];
+        const visited = new Set<string>();
+        visited.add(`${start.r},${start.c}`);
+        
+        while (q.length > 0) {
+            const { pos, dist } = q.shift()!;
+            if (pos.r === 0 && pos.c === 11) return dist;
+            
+            const node = knoppen[`${pos.r},${pos.c}`];
+            if (node) {
+                for (const buur of node.buren) {
+                    const key = `${buur.r},${buur.c}`;
+                    if (!visited.has(key)) {
+                        visited.add(key);
+                        q.push({ pos: buur, dist: dist + 1 });
+                    }
+                }
+            }
+        }
+        return Infinity;
+    });
+
+    const allEqual = distances.every(d => d === distances[0] && d !== Infinity);
+    if (!allEqual) {
+        console.warn("Board parity warning: paths are not equal length", distances);
+        // We could recursively call generateBoard here, but the midpoint logic usually prevents this.
+    }
+    
     return { board: knoppen, verbodenBarricades, startCols };
 }
 
