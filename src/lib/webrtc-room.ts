@@ -80,11 +80,20 @@ export function startHostSession(args: {
   roomId: string;
   gameName: string;
   hostName: string;
+  initialGame?: GameState;
   onGameStateUpdated: (game: GameState) => void;
   onError: (message: string) => void;
   onStatusUpdated?: (status: string) => void;
 }): HostSession {
-  const game: GameState = {
+  const defaultSettings: GameSettings = {
+    captureBonus: false,
+    winCondition: 1,
+    diceMode: 'animated',
+    protectBottomRow: true,
+    extraRollAfterBarricade: false,
+  };
+
+  const game: GameState = args.initialGame || {
     id: sanitizeRoomId(args.roomId),
     gameName: args.gameName,
     slots: [
@@ -93,12 +102,8 @@ export function startHostSession(args: {
       { id: 2, type: 'open', color: '#3b82f6' }, // Blue
       { id: 3, type: 'open', color: '#eab308' }, // Yellow
     ],
-    settings: {
-      captureBonus: false,
-      winCondition: 1,
-      diceMode: 'animated',
-      protectBottomRow: true
-    }
+    settings: defaultSettings,
+    boardState: undefined,
   };
 
   args.onStatusUpdated?.('Contacting PeerJS Server...');

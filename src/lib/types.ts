@@ -28,6 +28,7 @@ export interface GameSettings {
     winCondition: number;
     diceMode: 'animated' | 'instant_bots' | 'instant';
     protectBottomRow: boolean;
+    extraRollAfterBarricade: boolean;
 }
 
 export interface BoardState {

@@ -43,7 +43,7 @@ export default function JoinGameDialog({ isOpen, setIsOpen, playerName, initialG
 
     setIsLoading(true);
     localStorage.setItem('playerName', trimmedPlayerName);
-    sessionStorage.setItem(
+    localStorage.setItem(
       'barricadeSession',
       JSON.stringify({
         role: 'guest',

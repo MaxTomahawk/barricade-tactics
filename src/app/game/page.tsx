@@ -97,7 +97,7 @@ function GamePageContent() {
     if (signaledRef.current) return;
     signaledRef.current = true;
 
-    const raw = sessionStorage.getItem('barricadeSession');
+    const raw = localStorage.getItem('barricadeSession');
     if (!raw) {
       setIsLoading(false);
       setError('Session not found. Return to lobby and host or join again.');
