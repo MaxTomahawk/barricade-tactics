@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { normalizeRoomId } from '@/lib/webrtc-room';
 
 interface JoinGameDialogProps {
   isOpen: boolean;
@@ -17,49 +18,38 @@ interface JoinGameDialogProps {
 
 export default function JoinGameDialog({ isOpen, setIsOpen, playerName }: JoinGameDialogProps) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { showError } = useToast();
   const [gameId, setGameId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleJoinGame = async () => {
-    if (!gameId.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a game ID.",
-        variant: "destructive"
-      });
+    const roomId = normalizeRoomId(gameId);
+    const trimmedPlayerName = playerName.trim();
+
+    if (!roomId) {
+      showError('Please enter a room code.');
       return;
     }
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/join-game', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ gameId, playerName }),
-      });
 
-      if (response.ok) {
-        router.push(`/game/${gameId}`);
-      } else {
-        const { error } = await response.json();
-        toast({
-          title: "Failed to Join",
-          description: error,
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error("Error joining game:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
+    if (!trimmedPlayerName) {
+      showError('Please enter a player name first.');
+      return;
     }
+
+    setIsLoading(true);
+    localStorage.setItem('playerName', trimmedPlayerName);
+    sessionStorage.setItem(
+      'barricadeSession',
+      JSON.stringify({
+        role: 'guest',
+        roomId,
+        playerName: trimmedPlayerName,
+      })
+    );
+
+    setIsOpen(false);
+    setIsLoading(false);
+    router.push(`/game?roomId=${roomId}`);
   };
 
   return (
@@ -67,17 +57,18 @@ export default function JoinGameDialog({ isOpen, setIsOpen, playerName }: JoinGa
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Join Game</DialogTitle>
-          <DialogDescription>Enter the game ID to join a friend's game.</DialogDescription>
+          <DialogDescription>Enter the room code to join a game.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="game-id">Game ID</Label>
+            <Label htmlFor="game-id">Room Code</Label>
             <Input
               id="game-id"
-              placeholder="Enter Game ID"
+              placeholder="Enter Room Code"
               value={gameId}
               onChange={(e) => setGameId(e.target.value)}
               className="text-lg"
+              maxLength={10}
             />
           </div>
         </div>

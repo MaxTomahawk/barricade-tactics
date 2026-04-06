@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { createRoomId } from '@/lib/webrtc-room';
 
 interface HostGameDialogProps {
   isOpen: boolean;
@@ -17,42 +18,36 @@ interface HostGameDialogProps {
 
 export default function HostGameDialog({ isOpen, setIsOpen, playerName }: HostGameDialogProps) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { showError } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [gameName, setGameName] = useState('');
 
   const handleHostGame = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/create-game', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ playerName, gameName }),
-      });
+    const trimmedGameName = gameName.trim();
+    const trimmedPlayerName = playerName.trim();
 
-      if (response.ok) {
-        const { gameId } = await response.json();
-        router.push(`/game/${gameId}`);
-      } else {
-        const { error } = await response.json();
-        toast({
-          title: "Error Creating Game",
-          description: error || "An unknown error occurred.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Error hosting game:", error);
-    } finally {
-      setIsLoading(false);
+    if (!trimmedGameName || !trimmedPlayerName) {
+      showError('Please provide both game name and player name.');
+      return;
     }
+
+    setIsLoading(true);
+    const roomId = createRoomId();
+
+    localStorage.setItem('playerName', trimmedPlayerName);
+    sessionStorage.setItem(
+      'barricadeSession',
+      JSON.stringify({
+        role: 'host',
+        roomId,
+        gameName: trimmedGameName,
+        playerName: trimmedPlayerName,
+      })
+    );
+
+    setIsOpen(false);
+    setIsLoading(false);
+    router.push(`/game?roomId=${roomId}`);
   };
 
   return (
