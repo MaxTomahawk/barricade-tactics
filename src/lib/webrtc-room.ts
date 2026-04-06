@@ -365,9 +365,9 @@ export function startGuestSession(args: {
     clearTimeout(peerOpenTimeout);
     clearTimeout(connectionTimeout);
     if (err.type === 'peer-unavailable') {
-      args.onError("Host room doesn't exist. Please check the code.");
+      args.onError("[peer-unavailable] Host room doesn't exist.");
     } else if (err.type === 'unavailable-id') {
-      args.onError("PeerJS ID taken. Avoid refreshing rapidly.");
+      args.onError("[id-taken] PeerJS ID taken.");
     } else {
       args.onError(err.message || 'Peer connection error');
     }

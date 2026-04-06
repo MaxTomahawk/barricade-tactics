@@ -65,7 +65,7 @@ import { GameBoard } from '@/components/ui/GameBoard';
 import { initializeBoardState, calculateBotAction } from '@/lib/game-logic/engine';
 
 type SessionInfo = {
-  role: 'host' | 'guest';
+  role: 'host' | 'guest' | 'matchmaking';
   roomId: string;
   gameName?: string;
   playerName: string;
@@ -134,58 +134,113 @@ function GamePageContent() {
     };
 
     let active = true;
-    let fallbackTimeout: ReturnType<typeof setTimeout>;
-
-    if (session.role === 'host') {
-      fallbackTimeout = setTimeout(() => {
-        if (!active) return;
-
-        let initialGame: GameState | undefined = undefined;
-        const cacheRaw = localStorage.getItem(`barricade_host_cache_${roomId}`);
-        if (cacheRaw) {
-          try {
-            const cached = JSON.parse(cacheRaw);
-            if (cached.id === roomId) {
-              initialGame = cached;
-              console.log("Resuming from cache for room", roomId);
-            }
-          } catch(e) {
-            console.error("Failed to parse game cache", e);
+    let matchIdx = 1;
+    
+    let initialGame: GameState | undefined = undefined;
+    if (roomId && session.role === 'host') {
+      const cacheRaw = localStorage.getItem(`barricade_host_cache_${roomId}`);
+      if (cacheRaw) {
+        try {
+          const cached = JSON.parse(cacheRaw);
+          if (cached.id === roomId) {
+            initialGame = cached;
+            console.log("Resuming from cache for room", roomId);
           }
+        } catch(e) {
+          console.error("Failed to parse game cache", e);
+        }
+      }
+    }
+
+    const tryNextMatch = () => {
+        if (!active) return;
+        if (matchIdx > 5) {
+            setError("No matchmaking rooms available. Please try hosting a private room.");
+            setIsLoading(false);
+            return;
         }
 
-        const host = startHostSession({
-          roomId,
-          gameName: session.gameName || 'Untitled Room',
-          hostName: session.playerName || 'Host',
-          initialGame,
-          onGameStateUpdated,
-          onError: onPeerError,
-          onStatusUpdated: setSignalingStatus,
-        });
-        setHostSession(host);
-        shutdownRef.current = host.shutdown;
-        if (roomId) localStorage.setItem('lastRoomCode', roomId);
-      }, 50);
-    } else {
-      fallbackTimeout = setTimeout(() => {
-        if (!active) return;
-        const guest = startGuestSession({
-          roomId,
-          playerName: session.playerName || 'Guest',
-          onGameStateUpdated,
-          onError: onPeerError,
-          onStatusUpdated: setSignalingStatus,
+        const currentRoomId = `BT_MATCH_${matchIdx}`;
+        setSignalingStatus(`Searching for game (${matchIdx}/5)...`);
+        
+        let guest: GuestSession | null = null;
+        let host: HostSession | null = null;
+
+        const onMatchError = (msg: string) => {
+            if (!active) return;
+            if (msg.includes('[peer-unavailable]')) {
+                // No host found for this ID, so WE become the host.
+                setSignalingStatus(`Creating new room ${currentRoomId}...`);
+                host = startHostSession({
+                    roomId: currentRoomId,
+                    gameName: 'Matchmaking Lobby',
+                    hostName: session.playerName,
+                    onGameStateUpdated,
+                    onError: (hMsg) => {
+                       if (hMsg.includes('[id-taken]')) {
+                          // Rare race condition: someone else just took it.
+                          matchIdx++;
+                          tryNextMatch();
+                       } else {
+                          onPeerError(hMsg);
+                       }
+                    },
+                    onStatusUpdated: setSignalingStatus,
+                });
+                setHostSession(host);
+                shutdownRef.current = host.shutdown;
+            } else if (msg.includes('full') || msg.includes('Rejected')) {
+                // Room full, try next ID
+                shutdownRef.current?.();
+                matchIdx++;
+                tryNextMatch();
+            } else {
+                onPeerError(msg);
+            }
+        };
+
+        guest = startGuestSession({
+            roomId: currentRoomId,
+            playerName: session.playerName,
+            onGameStateUpdated,
+            onError: onMatchError,
+            onStatusUpdated: (s) => setSignalingStatus(`Joining room ${currentRoomId}: ${s}`),
         });
         setGuestSession(guest);
         shutdownRef.current = guest.shutdown;
-        if (roomId) localStorage.setItem('lastRoomCode', roomId);
-      }, 50);
+    };
+
+    if (session.role === 'matchmaking') {
+        tryNextMatch();
+    } else {
+        // ... previous logic for normal host/guest ...
+        if (session.role === 'host') {
+          const host = startHostSession({
+            roomId,
+            gameName: session.gameName || 'Untitled Room',
+            hostName: session.playerName || 'Host',
+            initialGame,
+            onGameStateUpdated,
+            onError: onPeerError,
+            onStatusUpdated: setSignalingStatus,
+          });
+          setHostSession(host);
+          shutdownRef.current = host.shutdown;
+        } else {
+          const guest = startGuestSession({
+            roomId,
+            playerName: session.playerName || 'Guest',
+            onGameStateUpdated,
+            onError: onPeerError,
+            onStatusUpdated: setSignalingStatus,
+          });
+          setGuestSession(guest);
+          shutdownRef.current = guest.shutdown;
+        }
     }
 
     return () => {
       active = false;
-      clearTimeout(fallbackTimeout);
       shutdownRef.current?.();
       shutdownRef.current = null;
     };

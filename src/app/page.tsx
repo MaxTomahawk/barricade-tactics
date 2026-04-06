@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Bot, ChevronRight } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Bot } from 'lucide-react';
 import HostGameDialog from '@/components/lobby/HostGameDialog';
 import JoinGameDialog from '@/components/lobby/JoinGameDialog';
 
 function HomeContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const joinRoomId = searchParams.get('joinRoom');
   const [name, setName] = useState('');
@@ -72,6 +73,7 @@ function HomeContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Button
               size="lg"
+              className="bg-primary hover:bg-primary/90 text-white"
               onClick={() => setIsHostDialogOpen(true)}
               disabled={!isNameValid}
             >
@@ -86,6 +88,30 @@ function HomeContent() {
               Join Game
             </Button>
           </div>
+        
+        <div className="pt-2">
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full border-primary/20 hover:border-primary/50 hover:bg-primary/5 group"
+            disabled={!isNameValid}
+            onClick={() => {
+              const sessionData = {
+                role: 'matchmaking',
+                playerName: name.trim(),
+                roomId: 'MATCHMAKING'
+              };
+              localStorage.setItem('barricadeSession', JSON.stringify(sessionData));
+              router.push('/game?roomId=MATCHMAKING');
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Matchmaking (Quick Play)
+              <ChevronRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+            </span>
+          </Button>
+        </div>
           
           {lastRoomCode && isNameValid && (
             <div className="pt-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
