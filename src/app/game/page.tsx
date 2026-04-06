@@ -117,29 +117,9 @@ function GamePageContent() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-8 bg-background">
-        <div className="animate-pulse space-y-4 text-center">
-          <div className="h-8 w-8 mx-auto border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xl font-medium text-foreground">{signalingStatus}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return <div className="p-8 text-red-500 font-medium">{error}</div>;
-  }
-
-  if (!game) {
-    return <div className="p-8">Game not found.</div>;
-  }
-
-  const isHostUser = !!hostSession;
-
   // --- HOST ORCHESTRATION ENGINE LOOP ---
   useEffect(() => {
+    const isHostUser = !!hostSession;
     if (!isHostUser || !game?.boardState || !hostSession) return;
     const bs = game.boardState;
     
@@ -168,7 +148,30 @@ function GamePageContent() {
        }, 1000);
        return () => clearTimeout(timer);
     }
-  }, [isHostUser, game?.boardState?.status, game?.boardState?.beurt, hostSession, game?.slots]);
+  }, [game?.boardState?.status, game?.boardState?.beurt, hostSession, game?.slots]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center p-8 bg-background">
+        <div className="animate-pulse space-y-4 text-center">
+          <div className="h-8 w-8 mx-auto border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xl font-medium text-foreground">{signalingStatus}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="p-8 text-red-500 font-medium">{error}</div>;
+  }
+
+  if (!game) {
+    return <div className="p-8">Game not found.</div>;
+  }
+
+  const isHostUser = !!hostSession;
+
+
 
   if (game.boardState) {
      let localPlayerIndex = -1;
