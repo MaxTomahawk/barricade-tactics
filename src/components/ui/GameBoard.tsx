@@ -312,7 +312,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                  <g key={`node-${posToStr(k)}`}>
                     <circle cx={cx} cy={cy} r={0.3} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
                     {isMarkedFinished && (
-                        <g transform={`translate(${cx}, ${cy}) scale(0.02)`}>
+                        <g transform={`translate(${cx}, ${cy}) scale(0.02)`} className="pointer-events-none opacity-60">
                            <path 
                               d="M12 15l-3-3m0 0l3-3m-3 3h8M5 12a7 7 0 1114 0 7 7 0 01-14 0z" 
                               fill="none" 
@@ -322,7 +322,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                               strokeLinejoin="round" 
                               transform="translate(-12,-12)"
                            />
-                           <circle r="8" fill={stroke} opacity="0.3" />
+                           <circle r="8" fill={stroke} opacity="0.4" />
                         </g>
                     )}
                     {(isAllowedTarget || isClickablePawn) && (

@@ -310,7 +310,7 @@ function GamePageContent() {
                         <h3 className="text-white font-semibold flex items-center gap-2">
                            <ChevronRight size={14} className="text-primary" /> Objective
                         </h3>
-                        <p>Be the first to reach the **Finish Node** at the top center with the required number of pawns.</p>
+                        <p>Be the first to reach the <strong className="text-yellow-500">Finish Node</strong> at the top center with the required number of pawns.</p>
                      </section>
 
                      <section className="space-y-2">
@@ -320,8 +320,8 @@ function GamePageContent() {
                         <p>Roll the dice and move exactly that many spaces. You can move in any direction but cannot backtrack in the same turn.</p>
                         <ul className="list-disc list-inside space-y-1 ml-2 text-slate-400">
                            <li>Jump over other pawns (your own or opponents).</li>
-                           <li>Landing on an opponent's pawn sends it back to its **Home slot**.</li>
-                           <li>Landing on a **Barricade** allows you to move it to any valid board node.</li>
+                           <li>Landing on an opponent's pawn sends it back to its <strong>Home slot</strong>.</li>
+                           <li>Landing on a <strong>Barricade</strong> allows you to move it to any valid board node.</li>
                         </ul>
                      </section>
 
