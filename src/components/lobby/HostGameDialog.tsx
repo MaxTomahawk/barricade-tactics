@@ -23,8 +23,6 @@ export default function HostGameDialog({ isOpen, setIsOpen, playerName }: HostGa
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [totalPlayers, setTotalPlayers] = useState(2);
-  const [botCount, setBotCount] = useState(1);
   const [settings, setSettings] = useState<GameSettings>({
     totalPlayers: 2,
     botCount: 1,
@@ -33,31 +31,29 @@ export default function HostGameDialog({ isOpen, setIsOpen, playerName }: HostGa
     winCondition: 1,
   });
 
-  const handleTotalPlayersChange = (value: number) => {
-    setTotalPlayers(value);
-    setSettings(s => ({ ...s, totalPlayers: value }));
-    if (botCount >= value) {
-      const newBotCount = value - 1;
-      setBotCount(newBotCount);
-      setSettings(s => ({ ...s, botCount: newBotCount }));
-    }
-  };
+  // Derived state for sliders to prevent direct state binding issues
+  const totalPlayers = settings.totalPlayers;
+  const botCount = settings.botCount;
 
-  const handleBotCountChange = (value: number) => {
-    setBotCount(value);
-    setSettings(s => ({ ...s, botCount: value }));
+  const handleTotalPlayersChange = (value: number) => {
+    setSettings(s => {
+      const newTotalPlayers = value;
+      const newBotCount = s.botCount >= newTotalPlayers ? newTotalPlayers - 1 : s.botCount;
+      return { ...s, totalPlayers: newTotalPlayers, botCount: newBotCount };
+    });
   };
 
   const handleHostGame = async () => {
     setIsLoading(true);
     try {
-      const { roomCode, error } = await createRoom(playerName, settings);
-      if (roomCode) {
-        router.push(`/game/${roomCode}`);
+      const result = await createRoom(playerName, settings);
+
+      if (result.roomCode) {
+        router.push(`/game/${result.roomCode}`);
       } else {
         toast({
           title: "Error Creating Room",
-          description: error || "An unknown error occurred.",
+          description: result.error || "An unknown error occurred.",
           variant: "destructive",
         });
       }
@@ -82,9 +78,9 @@ export default function HostGameDialog({ isOpen, setIsOpen, playerName }: HostGa
         </DialogHeader>
         <div className="grid gap-6 py-4">
           <div className="grid gap-2">
-            <Label>Total Players: {settings.totalPlayers}</Label>
+            <Label>Total Players: {totalPlayers}</Label>
             <Slider
-              value={[settings.totalPlayers]}
+              value={[totalPlayers]}
               onValueChange={(val) => handleTotalPlayersChange(val[0])}
               min={2}
               max={4}
@@ -92,10 +88,10 @@ export default function HostGameDialog({ isOpen, setIsOpen, playerName }: HostGa
             />
           </div>
           <div className="grid gap-2">
-            <Label>Number of Bots: {settings.botCount}</Label>
+            <Label>Number of Bots: {botCount}</Label>
             <Slider
-              value={[settings.botCount]}
-              onValueChange={(val) => handleBotCountChange(val[0])}
+              value={[botCount]}
+              onValueChange={(val) => setSettings(s => ({ ...s, botCount: val[0] }))}
               min={0}
               max={totalPlayers - 1}
               step={1}
