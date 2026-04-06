@@ -1,7 +1,7 @@
 'use server';
 
-import { db } from '@/lib/firebase';
-import { collection, doc, setDoc, getDoc, updateDoc, arrayUnion, serverTimestamp, runTransaction } from 'firebase/firestore';
+import { dbAdmin } from '@/lib/firebase-admin';
+import * as admin from 'firebase-admin';
 import { GameSettings, Player, GameState, PlayerColor, Pawn, BoardNode, Position } from '@/lib/types';
 import { generateBoard } from '@/lib/game-logic/board';
 import { revalidatePath } from 'next/cache';
@@ -20,16 +20,28 @@ function generateRoomCode(): string {
 
 export async function createRoom(playerName: string, settings: GameSettings): Promise<{ roomCode: string | null; error: string | null; }> {
     try {
-        const roomsCol = collection(db, 'games');
+        console.log("Attempting to create room...");
+        const roomsCol = dbAdmin.collection('games');
         let roomCode = '';
         let roomExists = true;
+        let attempts = 0;
 
-        while (roomExists) {
+        while (roomExists && attempts < 10) {
+            attempts++;
             roomCode = generateRoomCode();
-            const roomDoc = doc(db, 'games', roomCode);
-            const roomSnapshot = await getDoc(roomDoc);
-            roomExists = roomSnapshot.exists();
+            console.log(`Generated room code ${roomCode}, attempt ${attempts}`);
+            const roomDoc = roomsCol.doc(roomCode);
+            console.log("Getting room document snapshot...");
+            const roomSnapshot = await roomDoc.get();
+            console.log("Snapshot received. Exists:", roomSnapshot.exists);
+            roomExists = roomSnapshot.exists;
         }
+
+        if (roomExists) {
+            throw new Error("Failed to generate a unique room code after 10 attempts.");
+        }
+
+        console.log(`Unique room code found: ${roomCode}`);
 
         const hostPlayer: Player = {
             id: 'host-' + Date.now(),
@@ -56,10 +68,13 @@ export async function createRoom(playerName: string, settings: GameSettings): Pr
             lastRolls: {},
             opgepakteBarricadePos: null,
             history: [],
-            createdAt: serverTimestamp(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
-        await setDoc(doc(roomsCol, roomCode), initialGameState);
+        console.log("Setting initial game state...");
+        await roomsCol.doc(roomCode).set(initialGameState);
+        console.log("Room created successfully.");
+
         return { roomCode, error: null };
     } catch (error: any) {
         console.error("Error creating room:", error);
@@ -69,13 +84,13 @@ export async function createRoom(playerName: string, settings: GameSettings): Pr
 
 
 export async function joinRoom(playerName: string, roomCode: string): Promise<{ success: boolean; error?: string; roomCode?: string }> {
-    const roomRef = doc(db, 'games', roomCode);
+    const roomRef = dbAdmin.collection('games').doc(roomCode);
 
     try {
-        const result = await runTransaction(db, async (transaction) => {
+        const result = await dbAdmin.runTransaction(async (transaction) => {
             const roomSnapshot = await transaction.get(roomRef);
 
-            if (!roomSnapshot.exists()) {
+            if (!roomSnapshot.exists) {
                 return { success: false, error: 'Room not found.' };
             }
 
