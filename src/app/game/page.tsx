@@ -123,18 +123,24 @@ function GamePageContent() {
     if (!isHostUser || !game?.boardState || !hostSession) return;
     const bs = game.boardState;
     
+    const activeSlot = game.slots[bs.beurt];
+
     // Automatically throw dice server-side
     if (bs.status === 'DOBBELEN') {
+       let delay = 500;
+       if (game.settings.diceMode === 'instant' || (game.settings.diceMode === 'instant_bots' && activeSlot?.type === 'bot')) delay = 50;
+
        const timer = setTimeout(() => {
            const dice = Math.floor(Math.random() * 6) + 1;
            hostSession.processAction({ type: 'ROLL_END', value: dice });
-       }, 500);
+       }, delay);
        return () => clearTimeout(timer);
     }
 
     // Bot AI
-    const activeSlot = game.slots[bs.beurt];
     if (activeSlot && activeSlot.type === 'bot') {
+       let delay = 1000;
+       if (game.settings.diceMode === 'instant' || game.settings.diceMode === 'instant_bots') delay = 50;
        const timer = setTimeout(() => {
            if (bs.status === 'WACHT_OP_DOBBELSTEEN') {
               hostSession.processAction({ type: 'ROLL_START' });
@@ -189,6 +195,7 @@ function GamePageContent() {
         <main className="flex min-h-screen flex-col items-center py-10 px-4 bg-background overflow-auto">
             <GameBoard 
                state={game.boardState}
+               slots={game.slots}
                localPlayerIndex={localPlayerIndex}
                onAction={(action) => {
                   if (isHostUser) {
@@ -218,6 +225,48 @@ function GamePageContent() {
       >
         Copy Invite Link
       </button>
+
+      {isHostUser && (
+        <div className="mb-4 w-full max-w-md mx-auto flex flex-col gap-4 animate-in fade-in duration-300 bg-black/20 p-4 rounded-xl border border-white/5">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-300 font-medium">Capture Bonus (Extra Roll)</span>
+            <button
+              onClick={() => hostSession?.updateSettings({ captureBonus: !game.settings.captureBonus })}
+              className={`w-12 h-6 rounded-full transition-colors relative ${game.settings.captureBonus ? 'bg-green-500' : 'bg-gray-600'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${game.settings.captureBonus ? 'left-7' : 'left-1'}`} />
+            </button>
+          </div>
+          
+          <div className="flex flex-col gap-2">
+            <span className="text-sm text-gray-300 font-medium">Win Condition (Pawns to Finish)</span>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4].map(n => (
+                <button
+                  key={n}
+                  onClick={() => hostSession?.updateSettings({ winCondition: n })}
+                  className={`flex-1 py-1 rounded transition-colors text-sm font-bold ${game.settings.winCondition === n ? 'bg-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <span className="text-sm text-gray-300 font-medium">Dice Mode</span>
+            <select 
+              value={game.settings.diceMode}
+              onChange={(e) => hostSession?.updateSettings({ diceMode: e.target.value as any })}
+              className="bg-gray-800 border-none text-white text-sm rounded outline-none p-2 focus:ring-2 focus:ring-primary"
+            >
+              <option value="animated">Fully Animated</option>
+              <option value="instant_bots">Instant Bots</option>
+              <option value="instant">Instant Everything</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {isHostUser && (
         <div className="mb-10 w-full max-w-md mx-auto flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">

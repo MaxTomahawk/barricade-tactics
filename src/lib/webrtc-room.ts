@@ -2,7 +2,7 @@
 
 import type { DataConnection } from 'peerjs';
 import Peer from 'peerjs';
-import type { BoardState, Position } from './types';
+import type { BoardState, Position, GameSettings } from './types';
 import { initializeBoardState } from './game-logic/engine';
 
 export type SlotType = 'host' | 'player' | 'open' | 'bot' | 'closed';
@@ -18,6 +18,7 @@ export type GameState = {
   id: string;
   gameName: string;
   slots: [PlayerSlot, PlayerSlot, PlayerSlot, PlayerSlot];
+  settings: GameSettings;
   boardState?: BoardState;
 };
 
@@ -34,6 +35,7 @@ export type HostSession = {
   peer: Peer;
   game: GameState;
   updateSlot: (index: number, type: SlotType, pName?: string) => void;
+  updateSettings: (newSettings: Partial<GameSettings>) => void;
   broadcast: () => void;
   processAction: (action: any, connectionId?: string) => void;
   startGame: () => void;
@@ -79,13 +81,18 @@ export function startHostSession(args: {
 }): HostSession {
   const game: GameState = {
     id: sanitizeRoomId(args.roomId),
-    gameName: args.gameName.trim() || 'Untitled Room',
+    gameName: args.gameName,
     slots: [
-      { id: 0, type: 'host', playerName: args.hostName.trim() },
+      { id: 0, type: 'host', playerName: args.hostName, connectionId: '' },
       { id: 1, type: 'open' },
       { id: 2, type: 'open' },
       { id: 3, type: 'open' },
     ],
+    settings: {
+      captureBonus: false,
+      winCondition: 1,
+      diceMode: 'animated'
+    }
   };
 
   args.onStatusUpdated?.('Contacting PeerJS Server...');
@@ -99,12 +106,18 @@ export function startHostSession(args: {
     }
   }, 10000);
 
+  const updateSettings = (newSettings: Partial<GameSettings>) => {
+    game.settings = { ...game.settings, ...newSettings };
+    broadcast();
+  };
+
   const broadcast = () => {
     const publicGame: GameState = {
       id: game.id,
       gameName: game.gameName,
       slots: game.slots.map(s => ({ ...s })) as [PlayerSlot, PlayerSlot, PlayerSlot, PlayerSlot],
-      boardState: game.boardState // Passes exact board state efficiently through channels
+      settings: game.settings,
+      boardState: game.boardState ? structuredClone(game.boardState) : undefined
     };
     args.onGameStateUpdated(publicGame);
     for (const conn of connections.values()) {
@@ -132,10 +145,16 @@ export function startHostSession(args: {
     
     let initiatorIndex = -1;
     if (!connectionId) {
-       // Host local invocation
-       initiatorIndex = 0;
+       // Called by Host locally
+       const currBeurt = game.boardState?.beurt ?? -1;
+       const currSlot = game.slots.find(s => s.id === currBeurt);
+       if (currSlot?.type === 'bot') {
+           initiatorIndex = currBeurt; // Host executes on behalf of bot
+       } else {
+           initiatorIndex = 0; // Host is always 0
+       }
     } else {
-       // Find player
+       // Find guest connection
        const slot = game.slots.find(s => s.connectionId === connectionId);
        if (slot) initiatorIndex = slot.id;
     }
@@ -218,7 +237,7 @@ export function startHostSession(args: {
 
   const startGame = () => {
     if (game.boardState) return; // Already started
-    const seed = initializeBoardState(game.slots);
+    const seed = initializeBoardState(game.slots, game.settings);
     game.boardState = seed;
     broadcast();
   };
@@ -227,6 +246,7 @@ export function startHostSession(args: {
     peer,
     game,
     updateSlot,
+    updateSettings,
     broadcast,
     processAction,
     startGame,

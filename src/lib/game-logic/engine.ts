@@ -2,7 +2,7 @@ import { BoardState, Position, GameStatus, Pawn } from '../types';
 import { generateBoard, generateInitialBarricades } from './board';
 
 export const { board: GAME_GRAPH, verbodenBarricades: VERBODEN_BARRICADES } = generateBoard();
-export const FINISH_POS: Position = { r: 0, c: 5 };
+export const FINISH_POS: Position = { r: 0, c: 11 };
 
 export function posToStr(p: Position): string {
     return `${p.r},${p.c}`;
@@ -11,21 +11,22 @@ export function posToStr(p: Position): string {
 export function initializeBoardState(slots: { id: number, type: string }[]): BoardState {
     const activeSlots = slots.filter(s => s.type === 'host' || s.type === 'player' || s.type === 'bot');
     const pawns: Pawn[] = [];
-    const start_cols = [2, 4, 6, 8];
+    const start_row = 10;
+    const start_cols = [2, 8, 14, 20];
     let pawnIdCounter = 0;
 
     for (let slotIdx = 0; slotIdx < slots.length; slotIdx++) {
         const slot = slots[slotIdx];
         if (slot.type === 'host' || slot.type === 'player' || slot.type === 'bot') {
             const c = start_cols[slotIdx];
-            const startOffsets = [[1, 0], [2, 0], [1, -1], [2, -1]];
+            const startOffsets = [[1, -1], [1, 1], [2, -1], [2, 1]];
             for (let j = 0; j < 4; j++) {
                 const [r_offset, c_offset] = startOffsets[j];
                 pawns.push({
                     id: pawnIdCounter++,
                     playerId: '',
                     playerIndex: slotIdx,
-                    pos: { r: 14 + r_offset, c: c + c_offset },
+                    pos: { r: start_row + r_offset, c: c + c_offset },
                     isHome: true,
                     isFinished: false,
                     color: (['red', 'green', 'blue', 'yellow'] as const)[slotIdx],
@@ -140,13 +141,9 @@ export function kortstePad(start: Position, doel: Position, state: BoardState): 
 
 export function calcScore(posToScore: Position, playerIndex: number, state: BoardState): number {
     let score = 0;
-    // Base score: distance to finish (BFS distance? Or simply row distance?)
-    // Python used: abs(z[1] - 5) * 2 + (z[0] * 10) (smaller row is better)
-    // Actually python used: score = (z[0] * 10) + abs(z[1] - 5) * 2
-    // Wait, python min_score was the BEST move, so lower score is better.
-    score += (posToScore.r * 10) + Math.abs(posToScore.c - 5) * 2;
+    score += (posToScore.r * 10) + Math.abs(posToScore.c - 11) * 2;
     
-    if (posToScore.r === 0 && posToScore.c === 5) score -= 10000;
+    if (posToScore.r === 0 && posToScore.c === 11) score -= 10000;
     
     const isBarricade = state.barricades.some(b => b.r === posToScore.r && b.c === posToScore.c);
     if (isBarricade) score -= 50; // Eating barricade is very good behavior
