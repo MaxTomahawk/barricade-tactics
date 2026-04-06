@@ -27,6 +27,7 @@ export interface GameSettings {
     captureBonus: boolean;
     winCondition: number;
     diceMode: 'animated' | 'instant_bots' | 'instant';
+    protectBottomRow: boolean;
 }
 
 export interface BoardState {
@@ -41,4 +42,6 @@ export interface BoardState {
     winnaar: number | null;
     opgepakteBarricadePos: Position | null;
     settings: GameSettings;
+    activePlayerIndices: number[];
+    startCols: number[];
 }

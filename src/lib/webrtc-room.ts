@@ -29,7 +29,8 @@ export type ClientMessage =
   | { type: 'requestStartGame' }
   | { type: 'requestRollDice' }
   | { type: 'requestMovePawn'; pawnIdx: number; target: Position }
-  | { type: 'requestPlaceBarricade'; target: Position };
+  | { type: 'requestPlaceBarricade'; target: Position }
+  | { type: 'requestNoMoves' };
 
 export type HostSession = {
   peer: Peer;
@@ -91,7 +92,8 @@ export function startHostSession(args: {
     settings: {
       captureBonus: false,
       winCondition: 1,
-      diceMode: 'animated'
+      diceMode: 'animated',
+      protectBottomRow: true
     }
   };
 
@@ -127,10 +129,10 @@ export function startHostSession(args: {
     }
   };
 
-  const removePlayerForConnection = (connectionId: string) => {
+  const removePlayerForConnection = (peerId: string) => {
     let changed = false;
     for (const slot of game.slots) {
-      if (slot.connectionId === connectionId) {
+      if (slot.connectionId === peerId) {
         slot.type = 'open';
         slot.playerName = undefined;
         slot.connectionId = undefined;
@@ -148,14 +150,17 @@ export function startHostSession(args: {
        // Called by Host locally
        const currBeurt = game.boardState?.beurt ?? -1;
        const currSlot = game.slots.find(s => s.id === currBeurt);
-       if (currSlot?.type === 'bot') {
-           initiatorIndex = currBeurt; // Host executes on behalf of bot
+       
+       // Server authority: if it's a mandatory transition or a bot turn, 
+       // the host machine is acting on behalf of the current player.
+       if (action.type === 'ROLL_END' || action.type === 'GEEN_ZETTEN_ACK' || (currSlot && currSlot.type === 'bot')) {
+           initiatorIndex = currBeurt;
        } else {
-           initiatorIndex = 0; // Host is always 0
+           initiatorIndex = 0; // Host player (index 0) acting manually
        }
     } else {
-       // Find guest connection
-       const slot = game.slots.find(s => s.connectionId === connectionId);
+       // Call from a guest connection
+       const slot = game.slots.find(s => s.connectionId === connectionId); // connectionId here is actually the peerId passed from data handler
        if (slot) initiatorIndex = slot.id;
     }
     
@@ -190,7 +195,7 @@ export function startHostSession(args: {
   });
 
   peer.on('connection', (conn) => {
-    connections.set(conn.connectionId, conn);
+    connections.set(conn.peer, conn);
 
     conn.on('data', (raw) => {
       const msg = raw as ClientMessage;
@@ -202,7 +207,7 @@ export function startHostSession(args: {
         if (openSlot) {
           openSlot.type = 'player';
           openSlot.playerName = playerName;
-          openSlot.connectionId = conn.connectionId;
+          openSlot.connectionId = conn.peer;
           broadcast();
         } else {
           conn.send({ type: 'joinRejected', reason: 'Room is full or no open slots available.' });
@@ -215,19 +220,20 @@ export function startHostSession(args: {
           if (msg.type === 'requestRollDice') engineAction = { type: 'ROLL_START' };
           if (msg.type === 'requestMovePawn') engineAction = { type: 'MOVE', pawnIdx: (msg as any).pawnIdx, target: (msg as any).target };
           if (msg.type === 'requestPlaceBarricade') engineAction = { type: 'BARRICADE', target: (msg as any).target };
-          if (engineAction) processAction(engineAction, conn.connectionId);
+          if (msg.type === 'requestNoMoves') engineAction = { type: 'GEEN_ZETTEN_ACK' };
+          if (engineAction) processAction(engineAction, conn.peer);
         }
       }
     });
 
     conn.on('close', () => {
-      connections.delete(conn.connectionId);
-      removePlayerForConnection(conn.connectionId);
+      connections.delete(conn.peer);
+      removePlayerForConnection(conn.peer);
     });
 
     conn.on('error', () => {
-      connections.delete(conn.connectionId);
-      removePlayerForConnection(conn.connectionId);
+      connections.delete(conn.peer);
+      removePlayerForConnection(conn.peer);
     });
   });
 

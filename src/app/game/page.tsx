@@ -27,8 +27,13 @@ function GamePageContent() {
   const [hostSession, setHostSession] = useState<HostSession | null>(null);
   const [guestSession, setGuestSession] = useState<GuestSession | null>(null);
   const shutdownRef = useRef<null | (() => void)>(null);
+  const signaledRef = useRef(false);
+  const lastProcessedRef = useRef<string>('');
 
   useEffect(() => {
+    if (!roomId || signaledRef.current) return;
+    signaledRef.current = true;
+
     if (!roomId) {
       setIsLoading(false);
       setError('Missing roomId in URL.');
@@ -123,6 +128,10 @@ function GamePageContent() {
     if (!isHostUser || !game?.boardState || !hostSession) return;
     const bs = game.boardState;
     
+    const statusKey = `${bs.beurt}-${bs.status}`;
+    if (lastProcessedRef.current === statusKey) return;
+    lastProcessedRef.current = statusKey;
+
     const activeSlot = game.slots[bs.beurt];
 
     // Automatically throw dice server-side
@@ -146,15 +155,15 @@ function GamePageContent() {
               hostSession.processAction({ type: 'ROLL_START' });
            } else if (bs.status === 'GEEN_ZETTEN') {
               hostSession.processAction({ type: 'GEEN_ZETTEN_ACK' });
-           } else {
+           } else if (bs.status === 'SPELEN') {
               const botAction = calculateBotAction(bs);
               if (botAction) hostSession.processAction(botAction);
               else hostSession.processAction({ type: 'GEEN_ZETTEN_ACK' }); // fallback
            }
-       }, 1000);
+       }, delay);
        return () => clearTimeout(timer);
     }
-  }, [game?.boardState?.status, game?.boardState?.beurt, hostSession, game?.slots]);
+  }, [game?.boardState, hostSession, game?.slots]);
 
   if (isLoading) {
     return (
@@ -205,6 +214,7 @@ function GamePageContent() {
                       if (action.type === 'ROLL_START') reqMsg = { type: 'requestRollDice' };
                       if (action.type === 'MOVE') reqMsg = { type: 'requestMovePawn', pawnIdx: action.pawnIdx, target: action.target };
                       if (action.type === 'BARRICADE') reqMsg = { type: 'requestPlaceBarricade', target: action.target };
+                      if (action.type === 'GEEN_ZETTEN_ACK') reqMsg = { type: 'requestNoMoves' };
                       
                       if (reqMsg) guestSession.sendToHost(reqMsg);
                   }
@@ -235,6 +245,16 @@ function GamePageContent() {
               className={`w-12 h-6 rounded-full transition-colors relative ${game.settings.captureBonus ? 'bg-green-500' : 'bg-gray-600'}`}
             >
               <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${game.settings.captureBonus ? 'left-7' : 'left-1'}`} />
+            </button>
+          </div>
+
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-300 font-medium">Protect Bottom Row</span>
+            <button
+              onClick={() => hostSession?.updateSettings({ protectBottomRow: !game.settings.protectBottomRow })}
+              className={`w-12 h-6 rounded-full transition-colors relative ${game.settings.protectBottomRow ? 'bg-green-500' : 'bg-gray-600'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${game.settings.protectBottomRow ? 'left-7' : 'left-1'}`} />
             </button>
           </div>
           

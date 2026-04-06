@@ -1,42 +1,43 @@
-import { BoardState, Position, GameStatus, Pawn } from '../types';
+import { BoardState, Position, GameStatus, Pawn, GameSettings } from '../types';
 import { generateBoard, generateInitialBarricades } from './board';
 
-export const { board: GAME_GRAPH, verbodenBarricades: VERBODEN_BARRICADES } = generateBoard();
 export const FINISH_POS: Position = { r: 0, c: 11 };
 
 export function posToStr(p: Position): string {
     return `${p.r},${p.c}`;
 }
 
-export function initializeBoardState(slots: { id: number, type: string }[]): BoardState {
+export function initializeBoardState(slots: { id: number, type: string }[], settings: GameSettings): BoardState {
     const activeSlots = slots.filter(s => s.type === 'host' || s.type === 'player' || s.type === 'bot');
+    const activeIndices = activeSlots.map(s => s.id);
+    const playerCount = activeSlots.length;
+    
+    const { board: GAME_GRAPH, verbodenBarricades: VERBODEN_BARRICADES, startCols } = generateBoard(activeIndices);
+    
     const pawns: Pawn[] = [];
     const start_row = 10;
-    const start_cols = [2, 8, 14, 20];
+    const colors = ['red', 'green', 'blue', 'yellow'] as const;
     let pawnIdCounter = 0;
 
-    for (let slotIdx = 0; slotIdx < slots.length; slotIdx++) {
-        const slot = slots[slotIdx];
-        if (slot.type === 'host' || slot.type === 'player' || slot.type === 'bot') {
-            const c = start_cols[slotIdx];
-            const startOffsets = [[1, -1], [1, 1], [2, -1], [2, 1]];
-            for (let j = 0; j < 4; j++) {
-                const [r_offset, c_offset] = startOffsets[j];
-                pawns.push({
-                    id: pawnIdCounter++,
-                    playerId: '',
-                    playerIndex: slotIdx,
-                    pos: { r: start_row + r_offset, c: c + c_offset },
-                    isHome: true,
-                    isFinished: false,
-                    color: (['red', 'green', 'blue', 'yellow'] as const)[slotIdx],
-                });
-            }
+    for (let i = 0; i < activeSlots.length; i++) {
+        const slot = activeSlots[i];
+        const c = startCols[i];
+        const startOffsets = [[1, -1], [1, 1], [2, -1], [2, 1]];
+        for (let j = 0; j < 4; j++) {
+            const [r_offset, c_offset] = startOffsets[j];
+            pawns.push({
+                id: pawnIdCounter++,
+                playerId: '',
+                playerIndex: slot.id, // Use the SLOT id, not the loop index
+                pos: { r: start_row + r_offset, c: c + c_offset },
+                isHome: true,
+                isFinished: false,
+                color: colors[i % 4],
+            });
         }
     }
     
     const barricades = generateInitialBarricades(GAME_GRAPH, VERBODEN_BARRICADES);
-    const activeIndices = activeSlots.map(s => s.id);
     const startBeurt = activeIndices[Math.floor(Math.random() * activeIndices.length)];
     
     return {
@@ -46,9 +47,13 @@ export function initializeBoardState(slots: { id: number, type: string }[]): Boa
         pionnen: pawns,
         barricades,
         verbodenBarricades: VERBODEN_BARRICADES,
+        graph: GAME_GRAPH,
         laatsteWorpen: {},
         winnaar: null,
         opgepakteBarricadePos: null,
+        settings,
+        activePlayerIndices: activeIndices,
+        startCols,
     };
 }
 
@@ -73,11 +78,11 @@ export function vindZetten(start_pos: Position, state: BoardState): Position[] {
                               !(huidig.r === start_pos.r && huidig.c === start_pos.c);
         if (staat_barricade) continue;
 
-        const knoop = GAME_GRAPH[posToStr(huidig)];
+        const knoop = state.graph[posToStr(huidig)];
         if (!knoop) continue;
 
         for (const buur of knoop.buren) {
-            const buurNode = GAME_GRAPH[posToStr(buur)];
+            const buurNode = state.graph[posToStr(buur)];
             if (buurNode.is_start) continue;
             
             if (!vorig || (buur.r !== vorig.r || buur.c !== vorig.c)) {
@@ -115,12 +120,12 @@ export function kortstePad(start: Position, doel: Position, state: BoardState): 
     
     while (q.length > 0) {
         const { pos: huidig, pad } = q.shift()!;
-        const knoop = GAME_GRAPH[posToStr(huidig)];
+        const knoop = state.graph[posToStr(huidig)];
         
         if (!knoop) continue;
         
         for (const buur of knoop.buren) {
-            const buurNode = GAME_GRAPH[posToStr(buur)];
+            const buurNode = state.graph[posToStr(buur)];
             const b_pos_str = posToStr(buur);
             
             if (!bezocht.has(b_pos_str)) {
@@ -158,11 +163,12 @@ export function calcScore(posToScore: Position, playerIndex: number, state: Boar
 
 export function calculateBotAction(state: BoardState): { type: "BARRICADE", target: Position } | { type: "MOVE", pawnIdx: number, target: Position } | null {
     if (state.status === "PLAATS_BARRICADE") {
-        const vrije_plekken = Object.values(GAME_GRAPH)
+        const vrije_plekken = Object.values(state.graph)
             .filter(k => !k.is_finish && !k.is_start &&
                    !state.barricades.some(b => b.r === k.r && b.c === k.c) &&
                    !state.verbodenBarricades.some(vb => vb.r === k.r && vb.c === k.c) &&
-                   !state.pionnen.some(p => p.pos.r === k.r && p.pos.c === k.c)
+                   !state.pionnen.some(p => p.pos.r === k.r && p.pos.c === k.c) &&
+                   !(state.settings.protectBottomRow && k.r === 10)
             )
             .map(k => ({ r: k.r, c: k.c }));
             
@@ -208,7 +214,7 @@ export function calculateBotAction(state: BoardState): { type: "BARRICADE", targ
                     score -= 200;
                 }
                 
-                if (GAME_GRAPH[posToStr(plek)].buren.length > 2) {
+                if (state.graph[posToStr(plek)]?.buren.length > 2) {
                     score += 20;
                 }
                 
@@ -256,7 +262,10 @@ export function calculateBotAction(state: BoardState): { type: "BARRICADE", targ
 }
 
 export function nextTurn(state: BoardState, totalPlayers: number) {
-    state.beurt = (state.beurt + 1) % totalPlayers;
+    const active = state.activePlayerIndices;
+    const currentIdx = active.indexOf(state.beurt);
+    const nextIdx = (currentIdx + 1) % active.length;
+    state.beurt = active[nextIdx];
     state.dobbelsteen = 0;
     state.status = "WACHT_OP_DOBBELSTEEN";
 }
@@ -271,7 +280,6 @@ export function processGameAction(state: BoardState, playerIndex: number, totalP
     }
     
     if (action.type === "ROLL_END" && state.status === "DOBBELEN") {
-        if (playerIndex !== state.beurt) return false;
         state.dobbelsteen = action.value;
         state.laatsteWorpen[state.beurt] = state.dobbelsteen;
         state.status = "SPELEN";
@@ -313,7 +321,7 @@ export function processGameAction(state: BoardState, playerIndex: number, totalP
         // Eat opponent pawn
         for (const other of state.pionnen) {
             if (other.id !== p.id && other.pos.r === action.target.r && other.pos.c === action.target.c) {
-                const startNodes = Object.values(GAME_GRAPH).filter(n => n.is_start && n.speler_start === other.playerIndex);
+                const startNodes = Object.values(state.graph).filter((n: any) => n.is_start && n.speler_start === other.playerIndex);
                 for (const sn of startNodes) {
                     if (!state.pionnen.some(op => op.pos.r === sn.r && op.pos.c === sn.c)) {
                         other.pos = { r: sn.r, c: sn.c };
@@ -337,6 +345,15 @@ export function processGameAction(state: BoardState, playerIndex: number, totalP
     
     if (action.type === "BARRICADE" && state.status === "PLAATS_BARRICADE") {
         if (playerIndex !== state.beurt) return false;
+        
+        // Validate target position
+        const t = action.target;
+        const targetNode = state.graph[`${t.r},${t.c}`];
+        if (!targetNode) return false;
+        if (targetNode.is_finish || targetNode.is_start) return false;
+        if (state.barricades.some(b => b.r === t.r && b.c === t.c)) return false;
+        if (state.pionnen.some(p => p.pos.r === t.r && p.pos.c === t.c)) return false;
+        if (state.settings.protectBottomRow && t.r === 10) return false;
         
         state.barricades.push(action.target);
         state.opgepakteBarricadePos = null;

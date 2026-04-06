@@ -24,6 +24,49 @@ const COLOR_MAP: Record<PlayerColor | 'barricade' | 'finish' | 'path', string> =
 const BORD_ROWS = 11;
 const BORD_COLS = 23;
 
+// Standard die pip positions for a square centered at origin, size = s
+const DICE_PIPS: Record<number, [number, number][]> = {
+  1: [[0, 0]],
+  2: [[-0.22, -0.22], [0.22, 0.22]],
+  3: [[-0.22, -0.22], [0, 0], [0.22, 0.22]],
+  4: [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]],
+  5: [[-0.22, -0.22], [0.22, -0.22], [0, 0], [-0.22, 0.22], [0.22, 0.22]],
+  6: [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0], [0.22, 0], [-0.22, 0.22], [0.22, 0.22]],
+};
+
+function DiceDots({ value, color, size }: { value: number; color: string; size: number }) {
+  const pips = DICE_PIPS[value] || DICE_PIPS[1];
+  const dotR = size * 0.08;
+  return (
+    <>
+      {pips.map(([px, py], i) => (
+        <circle key={i} cx={px} cy={py} r={dotR} fill={color} />
+      ))}
+    </>
+  );
+}
+
+function RollingDice({ color, diceMode }: { color: string; diceMode: string }) {
+  const [face, setFace] = useState(1);
+  
+  useEffect(() => {
+    if (diceMode === 'instant' || diceMode === 'instant_bots') {
+      setFace(Math.floor(Math.random() * 6) + 1);
+      return;
+    }
+    const interval = setInterval(() => {
+      setFace(Math.floor(Math.random() * 6) + 1);
+    }, 80);
+    return () => clearInterval(interval);
+  }, [diceMode]);
+  
+  return (
+    <svg viewBox="-0.4 -0.4 0.8 0.8" className="w-12 h-12 animate-spin" style={{ animationDuration: '0.6s' }}>
+      <DiceDots value={face} color={color} size={0.8} />
+    </svg>
+  );
+}
+
 function usePawnPositions(pawns: Pawn[]) {
   const [displayPos, setDisplayPos] = useState<Record<number, {cx: number, cy: number, arcOffset: number}>>({});
   const prevPawnsRef = useRef<Pawn[]>(pawns);
@@ -210,7 +253,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
           })}
 
           {/* Draw Custom Home Base Linkages */}
-          {[2, 8, 14, 20].map(c => {
+          {(state.startCols || []).map(c => {
              const cx = c + 0.5;
              return (
                 <g key={`home-links-${c}`} stroke={COLOR_MAP.path} strokeWidth={0.15} strokeLinecap="round">
@@ -296,24 +339,23 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
              );
           })}
 
-          {/* Dice History Nodes */}
-          {[0, 1, 2, 3].map(i => {
-             const roll = state.laatsteWorpen[i];
+           {/* Dice History Nodes */}
+          {(state.activePlayerIndices || []).map((slotId, idx) => {
+             const roll = state.laatsteWorpen[slotId];
              if (!roll) return null;
-             // Match start cols exactly
-             const cx = [2, 8, 14, 20][i] + 0.5;
-             const nameStr = slots?.[i]?.playerName || (slots?.[i]?.type === 'bot' ? 'Bot' : `Player ${i+1}`);
-             const isActive = state.pionnen.some(p => p.playerIndex === i);
+             const cx = (state.startCols?.[idx] ?? 11) + 0.5;
+             const nameStr = slots?.[slotId]?.playerName || (slots?.[slotId]?.type === 'bot' ? 'Bot' : `Player ${slotId+1}`);
+             const isActive = state.pionnen.some(p => p.playerIndex === slotId);
              const colors: PlayerColor[] = ['red', 'green', 'blue', 'yellow'];
              
              return (
-                <g key={`history-${i}`} transform={`translate(${cx}, ${BORD_ROWS + 3.5})`}>
+                <g key={`history-${slotId}`} transform={`translate(${cx}, ${BORD_ROWS + 3.5})`}>
                    {isActive && <text x={0} y={-1.0} fill="rgba(255,255,255,0.8)" fontSize={0.3} fontFamily="sans-serif" fontWeight="bold" textAnchor="middle" style={{ textTransform: 'uppercase' }}>{nameStr}</text>}
                    
                    {roll ? (
                        <>
-                           <rect x={-0.35} y={-0.35} width={0.7} height={0.7} fill="#1e293b" rx={0.15} stroke={COLOR_MAP[colors[i]]} strokeWidth={0.05} />
-                           <text x={0} y={0.12} fill="white" fontSize={0.4} fontFamily="sans-serif" fontWeight="bold" textAnchor="middle">{roll}</text>
+                           <rect x={-0.4} y={-0.4} width={0.8} height={0.8} fill="#1e293b" rx={0.12} stroke={COLOR_MAP[colors[idx]]} strokeWidth={0.05} />
+                           <DiceDots value={roll} color={COLOR_MAP[colors[idx]]} size={0.8} />
                        </>
                    ) : null}
                 </g>
@@ -322,21 +364,34 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
         </svg>
         
         {/* Dice & Interactions */}
-        {(state.status === "WACHT_OP_DOBBELSTEEN" || state.status === "DOBBELEN" || state.status === "SPELEN" || state.status === "PLAATS_BARRICADE" || state.status === "GEEN_ZETTEN") && (
+        {(state.status === "WACHT_OP_DOBBELSTEEN" || state.status === "DOBBELEN" || state.status === "SPELEN" || state.status === "PLAATS_BARRICADE" || state.status === "GEEN_ZETTEN") && (() => {
+            const colors: PlayerColor[] = ['red', 'green', 'blue', 'yellow'];
+            const currentColor = COLOR_MAP[colors[state.beurt]] || '#fff';
+            
+            return (
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center z-20 shrink-0">
-              {state.status === "WACHT_OP_DOBBELSTEEN" && isMyTurn ? (
-                  <button onClick={handleRollClick} className="w-24 h-24 bg-primary text-primary-foreground rounded-2xl shadow-xl flex items-center justify-center font-bold text-2xl hover:scale-105 active:scale-95 transition-all">
-                     ROLL
+              {state.status === "PLAATS_BARRICADE" ? (
+                  <div className="w-20 h-20 bg-slate-800/80 border-4 border-amber-700 rounded-2xl flex items-center justify-center shadow-xl">
+                      <svg viewBox="0 0 24 24" className="w-10 h-10">
+                          <rect x="4" y="4" width="16" height="16" rx="3" fill={COLOR_MAP.barricade} stroke="#451a03" strokeWidth="1.5" />
+                          <text x="12" y="16" fill="white" fontSize="9" fontWeight="bold" textAnchor="middle">B</text>
+                      </svg>
+                  </div>
+              ) : state.status === "WACHT_OP_DOBBELSTEEN" && isMyTurn ? (
+                  <button onClick={handleRollClick} className="w-20 h-20 bg-slate-800 border-4 rounded-2xl shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer" style={{ borderColor: currentColor }}>
+                     <svg viewBox="-0.4 -0.4 0.8 0.8" className="w-12 h-12">
+                         <DiceDots value={6} color={currentColor} size={0.8} />
+                     </svg>
                   </button>
               ) : (
-                  <div className="w-24 h-24 bg-white/10 border-4 border-slate-600 rounded-2xl flex items-center justify-center shadow-inner relative">
-                      {state.dobbelsteen > 0 ? (
-                          <span className="text-4xl font-black text-white">{state.status === 'DOBBELEN' ? '?' : state.dobbelsteen}</span>
+                  <div className="w-20 h-20 bg-slate-800/80 border-4 border-slate-600 rounded-2xl flex items-center justify-center shadow-inner relative overflow-hidden">
+                      {state.status === 'DOBBELEN' ? (
+                          <RollingDice color={currentColor} diceMode={state.settings.diceMode} />
+                      ) : state.dobbelsteen > 0 ? (
+                          <svg viewBox="-0.4 -0.4 0.8 0.8" className="w-12 h-12">
+                              <DiceDots value={state.dobbelsteen} color={currentColor} size={0.8} />
+                          </svg>
                       ) : null}
-                      
-                      {state.status === 'DOBBELEN' && (
-                          <div className="absolute inset-0 bg-white/20 animate-pulse rounded-xl" />
-                      )}
                   </div>
               )}
               
@@ -346,7 +401,8 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                   </button>
               )}
             </div>
-        )}
+            );
+        })()}
         
         {state.status === "GAME_OVER" && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center rounded-xl animate-in fade-in zoom-in">

@@ -4,12 +4,25 @@ const BORD_ROWS = 11;
 const BORD_COLS = 23;
 const PLAYER_COLORS: PlayerColor[] = ['red', 'green', 'blue', 'yellow'];
 
-export function generateBoard(): { board: Record<string, BoardNode>, verbodenBarricades: Position[] } {
+export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: Record<string, BoardNode>, verbodenBarricades: Position[], startCols: number[] } {
     const knoppen: Record<string, BoardNode> = {};
     const verbodenBarricades: Position[] = [];
+    const playerCount = activeSlotIds.length;
+
+    // Compute start columns distributed evenly across board width (cols 2-20)
+    const startCols: number[] = [];
+    if (playerCount === 1) {
+        startCols.push(11); // center
+    } else if (playerCount === 2) {
+        startCols.push(5, 17);
+    } else if (playerCount === 3) {
+        startCols.push(4, 11, 18);
+    } else {
+        startCols.push(2, 8, 14, 20);
+    }
 
     const bridgesByRow: Record<number, number[]> = {};
-    bridgesByRow[11] = [2, 8, 14, 20]; // Connect to 4 entry node paths
+    bridgesByRow[11] = [...startCols]; // Connect to entry node paths
     bridgesByRow[-1] = [11]; // Connect to finish node at center
 
     // 1. Generate symmetrical bridge columns for odd rows (9 down to 1)
@@ -18,16 +31,13 @@ export function generateBoard(): { board: Record<string, BoardNode>, verbodenBar
         if (r === 1) {
             cols.add(11);
         } else {
-            // Determine logical funneling bounds based on height (minDist maxDist from center 11)
-            let maxDist = 9; // Col 2 and 20 are max limits
+            let maxDist = 9;
             if (r === 3) maxDist = 3; 
             if (r === 5) maxDist = 6;
             
-            // Available intervals (divisible by 3 for aesthetics: 3, 6, 9)
             const available: number[] = [];
             for (let d = 3; d <= maxDist; d += 3) available.push(d);
             
-            // Generate pool of symmetrical picks
             const count = Math.random() > 0.4 ? 2 : 1;
             
             for (let i = available.length - 1; i > 0; i--) {
@@ -37,12 +47,11 @@ export function generateBoard(): { board: Record<string, BoardNode>, verbodenBar
             
             for (let i = 0; i < count && i < available.length; i++) {
                 cols.add(11 - available[i]);
-                cols.add(11 + available[i]); // Mirror
+                cols.add(11 + available[i]);
             }
             
-            // 30% chance to put bridge exactly at center if we expand wide enough
             if (Math.random() > 0.7) cols.add(11);
-            if (cols.size === 0) cols.add(11); // Fallback
+            if (cols.size === 0) cols.add(11);
         }
         bridgesByRow[r] = Array.from(cols).sort((a,b) => a-b);
     }
@@ -54,8 +63,7 @@ export function generateBoard(): { board: Record<string, BoardNode>, verbodenBar
         }
     }
 
-    // 3. Instantiate horizontal rows ensuring NO dead ends
-    // Row 10 spans exactly between the entry bridges
+    // 3. Instantiate horizontal rows
     for (const r of [10, 8, 6, 4, 2]) {
         const U = [...bridgesByRow[r+1], ...bridgesByRow[r-1]];
         const minC = Math.min(...U);
@@ -68,42 +76,49 @@ export function generateBoard(): { board: Record<string, BoardNode>, verbodenBar
     // 4. Finish node
     knoppen['0,11'] = { r: 0, c: 11, buren: [], is_finish: true, is_start: false, speler_start: -1 };
     if (knoppen['1,11']) {
-        knoppen['1,11'].buren.push(knoppen['0,11']);
-        knoppen['0,11'].buren.push(knoppen['1,11']);
+        knoppen['1,11'].buren.push({ r: 0, c: 11 });
+        knoppen['0,11'].buren.push({ r: 1, c: 11 });
     }
 
-    // 5. Start positions
+    // 5. Start positions — ONLY for active players
     const start_row = 10;
-    const start_cols = [2, 8, 14, 20];
-    for (let idx = 0; idx < 4; idx++) {
-        const startC = start_cols[idx];
+    for (let idx = 0; idx < playerCount; idx++) {
+        const startC = startCols[idx];
         const entry_key = `${start_row},${startC}`;
+        
+        // Ensure entry node exists
+        if (!knoppen[entry_key]) {
+            knoppen[entry_key] = { r: start_row, c: startC, buren: [], is_finish: false, is_start: false, speler_start: -1 };
+        }
         
         for (const [ro, co] of [[1, -1], [1, 1], [2, -1], [2, 1]]) {
             const pr = start_row + ro;
             const pc = startC + co;
             const key = `${pr},${pc}`;
-            knoppen[key] = { r: pr, c: pc, buren: [knoppen[entry_key]], is_finish: false, is_start: true, speler_start: idx };
-            knoppen[entry_key].buren.push(knoppen[key]);
+            knoppen[key] = { r: pr, c: pc, buren: [{ r: start_row, c: startC }], is_finish: false, is_start: true, speler_start: activeSlotIds[idx] };
+            knoppen[entry_key].buren.push({ r: pr, c: pc });
             verbodenBarricades.push({ r: pr, c: pc });
         }
     }
 
-    // 6. Connect neighbors functionally
+    // 6. Connect neighbors — SKIP start nodes (they only connect to their entry point)
     for (const posKey in knoppen) {
         const knoop = knoppen[posKey];
+        if (knoop.is_start) continue; // Start nodes only use their manually-set entry connection
         const { r, c } = knoop;
         const mogelijkeBuren = [{ r: r - 1, c }, { r: r + 1, c }, { r: r, c: c - 1 }, { r: r, c: c + 1 }];
         for (const buurPos of mogelijkeBuren) {
             const buurKey = `${buurPos.r},${buurPos.c}`;
-            if (knoppen[buurKey] && !knoop.buren.find((b: BoardNode) => b.r === buurPos.r && b.c === buurPos.c)) {
+            const buurNode = knoppen[buurKey];
+            if (buurNode && !buurNode.is_start && !knoop.buren.find((b: BoardNode) => b.r === buurPos.r && b.c === buurPos.c)) {
                 knoop.buren.push({ r: buurPos.r, c: buurPos.c });
             }
         }
     }
 
-    return { board: knoppen, verbodenBarricades };
+    return { board: knoppen, verbodenBarricades, startCols };
 }
+
 
 export function generateInitialPawns(playerCount: number): Pawn[] {
     const pawns: Pawn[] = [];
@@ -133,20 +148,122 @@ export function generateInitialPawns(playerCount: number): Pawn[] {
 
 
 export function generateInitialBarricades(board: Record<string, BoardNode>, verbodenBarricades: Position[]): Position[] {
-    const vrijePlekken = Object.values(board)
-        .filter(k => 
-            !k.is_start && 
-            !k.is_finish && 
-            k.r > 2 && // From python code
-            !verbodenBarricades.some(vb => vb.r === k.r && vb.c === k.c)
-        )
-        .map(k => ({ r: k.r, c: k.c }));
-
-    // Shuffle
-    for (let i = vrijePlekken.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [vrijePlekken[i], vrijePlekken[j]] = [vrijePlekken[j], vrijePlekken[i]];
+    const CENTER_COL = 11;
+    const ENTRY_ROW = 10;
+    
+    // Count all playable nodes (non-start, non-finish)
+    const playableNodes = Object.values(board).filter(k => !k.is_start && !k.is_finish);
+    const budget = Math.floor(playableNodes.length / 8); // 1:8 ratio
+    
+    const isForbidden = (pos: Position) =>
+        pos.r === ENTRY_ROW || pos.r === 0 ||
+        verbodenBarricades.some(vb => vb.r === pos.r && vb.c === pos.c);
+    
+    const nodeExists = (r: number, c: number) => !!board[`${r},${c}`];
+    
+    // --- Step 1: Identify T-junctions in middle section (rows 3-9) ---
+    const tJunctions: Position[] = [];
+    for (const node of playableNodes) {
+        if (node.r >= 3 && node.r <= 9 && node.r % 2 === 1 && node.buren.length >= 3 && !isForbidden(node)) {
+            tJunctions.push({ r: node.r, c: node.c });
+        }
     }
-
-    return vrijePlekken.slice(0, 8);
+    // Sort by proximity to finish (smaller r = closer to top)
+    tJunctions.sort((a, b) => a.r - b.r);
+    
+    // --- Step 2: Place T-junction barricades symmetrically ---
+    const barricades: Position[] = [];
+    const placed = new Set<string>();
+    
+    // Group T-junctions into symmetrical pairs around CENTER_COL
+    const processedRows = new Set<string>(); // track "row,dist" to avoid dupes
+    
+    for (const tj of tJunctions) {
+        if (barricades.length >= budget) break;
+        
+        const dist = tj.c - CENTER_COL; // distance from center
+        const mirrorC = CENTER_COL - dist; // mirror column
+        const pairKey = `${tj.r},${Math.min(tj.c, mirrorC)}`;
+        
+        if (processedRows.has(pairKey)) continue;
+        processedRows.add(pairKey);
+        
+        const key1 = `${tj.r},${tj.c}`;
+        
+        if (dist === 0) {
+            // Center column — just place one
+            if (!placed.has(key1) && barricades.length < budget) {
+                barricades.push({ r: tj.r, c: tj.c });
+                placed.add(key1);
+            }
+        } else {
+            // Place as symmetrical pair
+            const key2 = `${tj.r},${mirrorC}`;
+            if (!placed.has(key1) && !placed.has(key2) && 
+                nodeExists(tj.r, mirrorC) && !isForbidden({ r: tj.r, c: mirrorC }) &&
+                barricades.length + 2 <= budget) {
+                barricades.push({ r: tj.r, c: tj.c });
+                placed.add(key1);
+                barricades.push({ r: tj.r, c: mirrorC });
+                placed.add(key2);
+            }
+        }
+    }
+    
+    // --- Step 3: Fill remaining budget symmetrically from middle section ---
+    const middleCandidates = playableNodes
+        .filter(k => k.r >= 3 && k.r <= 9 && !isForbidden(k) && !placed.has(`${k.r},${k.c}`))
+        .map(k => ({ r: k.r, c: k.c }));
+    
+    // Shuffle
+    for (let i = middleCandidates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [middleCandidates[i], middleCandidates[j]] = [middleCandidates[j], middleCandidates[i]];
+    }
+    
+    for (const mc of middleCandidates) {
+        if (barricades.length >= budget) break;
+        const dist = mc.c - CENTER_COL;
+        const mirrorC = CENTER_COL - dist;
+        const key1 = `${mc.r},${mc.c}`;
+        const key2 = `${mc.r},${mirrorC}`;
+        
+        if (dist === 0) {
+            if (!placed.has(key1)) {
+                barricades.push(mc);
+                placed.add(key1);
+            }
+        } else if (!placed.has(key1) && !placed.has(key2) && 
+                   nodeExists(mc.r, mirrorC) && !isForbidden({ r: mc.r, c: mirrorC }) &&
+                   barricades.length + 2 <= budget) {
+            barricades.push(mc);
+            placed.add(key1);
+            barricades.push({ r: mc.r, c: mirrorC });
+            placed.add(key2);
+        }
+    }
+    
+    // --- Step 4: Path congestion validation ---
+    for (const evenRow of [10, 8, 6, 4, 2]) {
+        const rowNodes = playableNodes.filter(k => k.r === evenRow);
+        const hasClearUpward = rowNodes.some(node => {
+            if (placed.has(`${node.r},${node.c}`)) return false;
+            return node.buren.some((b: Position) => 
+                b.r === node.r - 1 && !placed.has(`${b.r},${b.c}`)
+            );
+        });
+        
+        if (!hasClearUpward) {
+            // Remove the last-placed barricade on this row
+            for (let i = barricades.length - 1; i >= 0; i--) {
+                if (barricades[i].r === evenRow || barricades[i].r === evenRow - 1) {
+                    placed.delete(`${barricades[i].r},${barricades[i].c}`);
+                    barricades.splice(i, 1);
+                    break;
+                }
+            }
+        }
+    }
+    
+    return barricades;
 }
