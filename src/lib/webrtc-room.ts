@@ -2,6 +2,7 @@
 
 import type { DataConnection } from 'peerjs';
 import Peer from 'peerjs';
+import type { BoardState, Position } from './types';
 
 export type SlotType = 'host' | 'player' | 'open' | 'bot' | 'closed';
 
@@ -16,22 +17,30 @@ export type GameState = {
   id: string;
   gameName: string;
   slots: [PlayerSlot, PlayerSlot, PlayerSlot, PlayerSlot];
+  boardState?: BoardState;
 };
 
-type ClientMessage =
+export type ClientMessage =
   | { type: 'joinRequest'; playerName: string }
   | { type: 'gameStateUpdated'; game: GameState }
-  | { type: 'joinRejected'; reason: string };
+  | { type: 'joinRejected'; reason: string }
+  | { type: 'requestStartGame' }
+  | { type: 'requestRollDice' }
+  | { type: 'requestMovePawn'; pawnIdx: number; target: Position }
+  | { type: 'requestPlaceBarricade'; target: Position };
 
 export type HostSession = {
   peer: Peer;
   game: GameState;
   updateSlot: (index: number, type: SlotType, pName?: string) => void;
+  broadcast: () => void;
+  processAction: (action: any, connectionId?: string) => void;
   shutdown: () => void;
 };
 
 export type GuestSession = {
   peer: Peer;
+  sendToHost: (msg: ClientMessage) => void;
   shutdown: () => void;
 };
 
@@ -55,6 +64,8 @@ export function createRoomId(): string {
 export function normalizeRoomId(value: string): string {
   return sanitizeRoomId(value);
 }
+
+import { processGameAction } from './game-logic/engine';
 
 export function startHostSession(args: {
   roomId: string;
@@ -90,7 +101,8 @@ export function startHostSession(args: {
     const publicGame: GameState = {
       id: game.id,
       gameName: game.gameName,
-      slots: game.slots.map(s => ({ ...s })) as [PlayerSlot, PlayerSlot, PlayerSlot, PlayerSlot]
+      slots: game.slots.map(s => ({ ...s })) as [PlayerSlot, PlayerSlot, PlayerSlot, PlayerSlot],
+      boardState: game.boardState // Passes exact board state efficiently through channels
     };
     args.onGameStateUpdated(publicGame);
     for (const conn of connections.values()) {
@@ -111,6 +123,25 @@ export function startHostSession(args: {
       }
     }
     if (changed) broadcast();
+  };
+
+  const processAction = (action: any, connectionId?: string) => {
+    if (!game.boardState) return;
+    
+    let initiatorIndex = -1;
+    if (!connectionId) {
+       // Host local invocation
+       initiatorIndex = 0;
+    } else {
+       // Find player
+       const slot = game.slots.find(s => s.connectionId === connectionId);
+       if (slot) initiatorIndex = slot.id;
+    }
+    
+    // Total players? The active valid ones:
+    const activeValid = game.slots.filter(s => s.type === 'host' || s.type === 'player' || s.type === 'bot').map(s => s.id);
+    const result = processGameAction(game.boardState, initiatorIndex, game.slots.length, action);
+    if (result) broadcast();
   };
 
   const updateSlot = (index: number, type: SlotType, pName?: string) => {
@@ -142,19 +173,29 @@ export function startHostSession(args: {
 
     conn.on('data', (raw) => {
       const msg = raw as ClientMessage;
-      if (msg?.type !== 'joinRequest') return;
-      const playerName = msg.playerName.trim();
-      if (!playerName) return;
+      if (msg?.type === 'joinRequest') {
+        const playerName = msg.playerName.trim();
+        if (!playerName) return;
 
-      const openSlot = game.slots.find(s => s.type === 'open');
-      if (openSlot) {
-        openSlot.type = 'player';
-        openSlot.playerName = playerName;
-        openSlot.connectionId = conn.connectionId;
-        broadcast();
+        const openSlot = game.slots.find(s => s.type === 'open');
+        if (openSlot) {
+          openSlot.type = 'player';
+          openSlot.playerName = playerName;
+          openSlot.connectionId = conn.connectionId;
+          broadcast();
+        } else {
+          conn.send({ type: 'joinRejected', reason: 'Room is full or no open slots available.' });
+          setTimeout(() => conn.close(), 500);
+        }
       } else {
-        conn.send({ type: 'joinRejected', reason: 'Room is full or no open slots available.' });
-        setTimeout(() => conn.close(), 500);
+        if (msg.type.startsWith('request')) {
+          // parse request intent manually for security later, map to action
+          let engineAction;
+          if (msg.type === 'requestRollDice') engineAction = { type: 'ROLL_START' };
+          if (msg.type === 'requestMovePawn') engineAction = { type: 'MOVE', pawnIdx: (msg as any).pawnIdx, target: (msg as any).target };
+          if (msg.type === 'requestPlaceBarricade') engineAction = { type: 'BARRICADE', target: (msg as any).target };
+          if (engineAction) processAction(engineAction, conn.connectionId);
+        }
       }
     });
 
@@ -177,6 +218,8 @@ export function startHostSession(args: {
     peer,
     game,
     updateSlot,
+    broadcast,
+    processAction,
     shutdown: () => {
       for (const conn of connections.values()) {
         conn.close();
@@ -276,6 +319,9 @@ export function startGuestSession(args: {
 
   return {
     peer,
+    sendToHost: (msg: ClientMessage) => {
+      if (hostConnection && hostConnection.open) hostConnection.send(msg);
+    },
     shutdown: () => {
       clearTimeout(peerOpenTimeout);
       clearTimeout(connectionTimeout);

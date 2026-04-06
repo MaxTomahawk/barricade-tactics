@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { GameState, HostSession, SlotType, startGuestSession, startHostSession } from '@/lib/webrtc-room';
+import { GameState, HostSession, GuestSession, SlotType, startGuestSession, startHostSession } from '@/lib/webrtc-room';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { GameBoard } from '@/components/ui/GameBoard';
+import { initializeBoardState, calculateBotAction } from '@/lib/game-logic/engine';
 
 type SessionInfo = {
   role: 'host' | 'guest';
@@ -23,6 +25,7 @@ function GamePageContent() {
   const [error, setError] = useState('');
   
   const [hostSession, setHostSession] = useState<HostSession | null>(null);
+  const [guestSession, setGuestSession] = useState<GuestSession | null>(null);
   const shutdownRef = useRef<null | (() => void)>(null);
 
   useEffect(() => {
@@ -85,6 +88,7 @@ function GamePageContent() {
           onError: onPeerError,
           onStatusUpdated: setSignalingStatus,
         });
+        setGuestSession(guest);
         shutdownRef.current = guest.shutdown;
       }, 50);
     }
@@ -134,6 +138,72 @@ function GamePageContent() {
 
   const isHostUser = !!hostSession;
 
+  // --- HOST ORCHESTRATION ENGINE LOOP ---
+  useEffect(() => {
+    if (!isHostUser || !game?.boardState || !hostSession) return;
+    const bs = game.boardState;
+    
+    // Automatically throw dice server-side
+    if (bs.status === 'DOBBELEN') {
+       const timer = setTimeout(() => {
+           const dice = Math.floor(Math.random() * 6) + 1;
+           hostSession.processAction({ type: 'ROLL_END', value: dice });
+       }, 500);
+       return () => clearTimeout(timer);
+    }
+
+    // Bot AI
+    const activeSlot = game.slots[bs.beurt];
+    if (activeSlot && activeSlot.type === 'bot' && bs.status !== 'DOBBELEN') {
+       const timer = setTimeout(() => {
+           if (bs.status === 'WACHT_OP_DOBBELSTEEN') {
+              hostSession.processAction({ type: 'ROLL_START' });
+           } else if (bs.status === 'GEEN_ZETTEN') {
+              hostSession.processAction({ type: 'GEEN_ZETTEN_ACK' });
+           } else {
+              const botAction = calculateBotAction(bs);
+              if (botAction) hostSession.processAction(botAction);
+              else hostSession.processAction({ type: 'GEEN_ZETTEN_ACK' }); // fallback
+           }
+       }, 1000);
+       return () => clearTimeout(timer);
+    }
+  }, [isHostUser, game?.boardState?.status, game?.boardState?.beurt, hostSession, game?.slots]);
+
+  if (game.boardState) {
+     let localPlayerIndex = -1;
+     if (isHostUser) localPlayerIndex = 0;
+     else {
+         const raw = sessionStorage.getItem('barricadeSession');
+         if (raw) {
+            const sessionName = JSON.parse(raw).playerName;
+            const mySlot = game.slots.find(s => s.playerName === sessionName);
+            if (mySlot) localPlayerIndex = mySlot.id;
+         }
+     }
+
+     return (
+        <main className="flex min-h-screen flex-col items-center py-10 px-4 bg-background overflow-auto">
+            <GameBoard 
+               state={game.boardState}
+               localPlayerIndex={localPlayerIndex}
+               onAction={(action) => {
+                  if (isHostUser) {
+                      hostSession?.processAction(action);
+                  } else if (guestSession) {
+                      let reqMsg: any = null;
+                      if (action.type === 'ROLL_START') reqMsg = { type: 'requestRollDice' };
+                      if (action.type === 'MOVE') reqMsg = { type: 'requestMovePawn', pawnIdx: action.pawnIdx, target: action.target };
+                      if (action.type === 'BARRICADE') reqMsg = { type: 'requestPlaceBarricade', target: action.target };
+                      
+                      if (reqMsg) guestSession.sendToHost(reqMsg);
+                  }
+               }}
+            />
+        </main>
+     );
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-background">
       <h1 className="text-4xl font-bold mb-4">Game: {game.gameName}</h1>
@@ -151,7 +221,11 @@ function GamePageContent() {
           {(!game.slots.some(s => s.type === 'open') && game.slots.some(s => s.type === 'player' || s.type === 'bot')) ? (
             <button
               className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-12 rounded-xl shadow-xl transition-all hover:scale-105 active:scale-95 text-2xl tracking-wide uppercase"
-              onClick={() => alert("Game engine transition not yet implemented. But the Lobby is fully locked and ready to start!")}
+              onClick={() => {
+                  const seed = initializeBoardState(game.slots);
+                  game.boardState = seed;
+                  hostSession?.broadcast();
+              }}
             >
               Start Game
             </button>
