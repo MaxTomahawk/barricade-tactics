@@ -1,45 +1,24 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# Dependencies
 /node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+/core foundation repo/game-core-foundation/node_modules
 
-# testing
-/coverage
+# Next.js build output
+/.next
+/out
 
-# next.js
-/.next/
-/out/
+# IDE specific
+.idx
 
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# Log files
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
-# vercel
-.vercel
-
-# typescript
+# Other
+.DS_Store
 *.tsbuildinfo
-next-env.d.ts
-
-.genkit/*
-.env*
-
-# firebase
-firebase-debug.log
-firestore-debug.log
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
