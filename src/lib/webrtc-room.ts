@@ -3,6 +3,7 @@
 import type { DataConnection } from 'peerjs';
 import Peer from 'peerjs';
 import type { BoardState, Position } from './types';
+import { initializeBoardState } from './game-logic/engine';
 
 export type SlotType = 'host' | 'player' | 'open' | 'bot' | 'closed';
 
@@ -35,6 +36,7 @@ export type HostSession = {
   updateSlot: (index: number, type: SlotType, pName?: string) => void;
   broadcast: () => void;
   processAction: (action: any, connectionId?: string) => void;
+  startGame: () => void;
   shutdown: () => void;
 };
 
@@ -214,12 +216,20 @@ export function startHostSession(args: {
     args.onError(err.message || 'Host connection error');
   });
 
+  const startGame = () => {
+    if (game.boardState) return; // Already started
+    const seed = initializeBoardState(game.slots);
+    game.boardState = seed;
+    broadcast();
+  };
+
   return {
     peer,
     game,
     updateSlot,
     broadcast,
     processAction,
+    startGame,
     shutdown: () => {
       for (const conn of connections.values()) {
         conn.close();

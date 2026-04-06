@@ -134,7 +134,7 @@ function GamePageContent() {
 
     // Bot AI
     const activeSlot = game.slots[bs.beurt];
-    if (activeSlot && activeSlot.type === 'bot' && bs.status !== 'DOBBELEN') {
+    if (activeSlot && activeSlot.type === 'bot') {
        const timer = setTimeout(() => {
            if (bs.status === 'WACHT_OP_DOBBELSTEEN') {
               hostSession.processAction({ type: 'ROLL_START' });
@@ -224,11 +224,7 @@ function GamePageContent() {
           {(!game.slots.some(s => s.type === 'open') && game.slots.some(s => s.type === 'player' || s.type === 'bot')) ? (
             <button
               className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-12 rounded-xl shadow-xl transition-all hover:scale-105 active:scale-95 text-2xl tracking-wide uppercase"
-              onClick={() => {
-                  const seed = initializeBoardState(game.slots);
-                  game.boardState = seed;
-                  hostSession?.broadcast();
-              }}
+              onClick={() => hostSession?.startGame()}
             >
               Start Game
             </button>
