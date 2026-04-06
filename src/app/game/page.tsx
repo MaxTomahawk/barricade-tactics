@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { GameState, HostSession, GuestSession, SlotType, startGuestSession, startHostSession } from '@/lib/webrtc-room';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -70,6 +70,7 @@ type SessionInfo = {
 };
 
 function GamePageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const roomId = useMemo(() => (searchParams.get('roomId') || '').trim().toUpperCase(), [searchParams]);
 
@@ -118,6 +119,10 @@ function GamePageContent() {
     const onPeerError = (message: string) => {
       setError(message);
       setIsLoading(false);
+      // If critical error, redirect home after a short delay
+      if (message.includes('not found') || message.includes('session')) {
+         setTimeout(() => router.push('/'), 3000);
+      }
     };
 
     let active = true;
@@ -136,6 +141,7 @@ function GamePageContent() {
         });
         setHostSession(host);
         shutdownRef.current = host.shutdown;
+        if (roomId) localStorage.setItem('lastRoomCode', roomId);
       }, 50);
     } else {
       fallbackTimeout = setTimeout(() => {
@@ -149,6 +155,7 @@ function GamePageContent() {
         });
         setGuestSession(guest);
         shutdownRef.current = guest.shutdown;
+        if (roomId) localStorage.setItem('lastRoomCode', roomId);
       }, 50);
     }
 
@@ -231,7 +238,16 @@ function GamePageContent() {
   }
 
   if (error) {
-    return <div className="p-8 text-red-500 font-medium">{error}</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-background gap-4">
+        <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg max-w-md text-center">
+          <p className="font-bold text-lg mb-2">Error</p>
+          <p>{error}</p>
+        </div>
+        <p className="text-muted-foreground animate-pulse">Redirecting to menu...</p>
+        <button onClick={() => router.push('/')} className="px-4 py-2 bg-slate-800 text-white rounded hover:bg-slate-700 transition-colors">Return Now</button>
+      </div>
+    );
   }
 
   if (!game) {
