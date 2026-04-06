@@ -19,6 +19,7 @@ function GamePageContent() {
 
   const [game, setGame] = useState<GameState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [signalingStatus, setSignalingStatus] = useState('Initializing connections...');
   const [error, setError] = useState('');
   
   const [hostSession, setHostSession] = useState<HostSession | null>(null);
@@ -69,6 +70,7 @@ function GamePageContent() {
           hostName: session.playerName || 'Host',
           onGameStateUpdated,
           onError: onPeerError,
+          onStatusUpdated: setSignalingStatus,
         });
         setHostSession(host);
         shutdownRef.current = host.shutdown;
@@ -81,6 +83,7 @@ function GamePageContent() {
           playerName: session.playerName || 'Guest',
           onGameStateUpdated,
           onError: onPeerError,
+          onStatusUpdated: setSignalingStatus,
         });
         shutdownRef.current = guest.shutdown;
       }, 50);
@@ -96,8 +99,8 @@ function GamePageContent() {
 
   const inviteUrl = useMemo(() => {
     if (!roomId || typeof window === 'undefined') return '';
-    const url = new URL(window.location.href);
-    url.searchParams.set('roomId', roomId);
+    const url = new URL(window.location.origin + window.location.pathname.replace(/\/game\/?$/, '/'));
+    url.searchParams.set('joinRoom', roomId);
     return url.toString();
   }, [roomId]);
 
@@ -111,7 +114,14 @@ function GamePageContent() {
   };
 
   if (isLoading) {
-    return <div className="p-8">Connecting to peer host...</div>;
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center p-8 bg-background">
+        <div className="animate-pulse space-y-4 text-center">
+          <div className="h-8 w-8 mx-auto border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xl font-medium text-foreground">{signalingStatus}</p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -197,6 +207,28 @@ function GamePageContent() {
             );
           })}
         </div>
+
+        {isHostUser && (
+          <div className="mt-12 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
+            {(!game.slots.some(s => s.type === 'open') && game.slots.some(s => s.type === 'player' || s.type === 'bot')) ? (
+              <button
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 px-12 rounded-full shadow-xl transition-all hover:scale-105 active:scale-95 text-xl tracking-wide"
+                onClick={() => alert("Game engine transition not yet implemented. But the Lobby is fully locked and ready to start!")}
+              >
+                Start Game Outpost
+              </button>
+            ) : (
+              <div className="p-4 rounded-lg bg-muted border border-border text-center">
+                <p className="text-muted-foreground text-sm font-medium">
+                  Cannot start game yet.
+                </p>
+                <p className="text-muted-foreground text-xs mt-1">
+                  Ensure no slots are left "Open", and that you have at least 1 opponent (Bot or Player).
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </main>
   );

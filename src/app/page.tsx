@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,9 @@ import { Bot } from 'lucide-react';
 import HostGameDialog from '@/components/lobby/HostGameDialog';
 import JoinGameDialog from '@/components/lobby/JoinGameDialog';
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const joinRoomId = searchParams.get('joinRoom');
   const [name, setName] = useState('');
   const [isHostDialogOpen, setIsHostDialogOpen] = useState(false);
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
@@ -24,7 +27,15 @@ export default function Home() {
     if (savedName) {
       setName(savedName);
     }
-  }, []);
+
+    if (joinRoomId) {
+      setIsJoinDialogOpen(true);
+      // Clean up URL to prevent stuck dialogs on refresh
+      const url = new URL(window.location.href);
+      url.searchParams.delete('joinRoom');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [joinRoomId]);
 
   const isNameValid = name.trim().length > 1;
 
@@ -85,7 +96,16 @@ export default function Home() {
         isOpen={isJoinDialogOpen}
         setIsOpen={setIsJoinDialogOpen}
         playerName={name}
+        initialGameId={joinRoomId || undefined}
       />
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background">Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }

@@ -62,6 +62,7 @@ export function startHostSession(args: {
   hostName: string;
   onGameStateUpdated: (game: GameState) => void;
   onError: (message: string) => void;
+  onStatusUpdated?: (status: string) => void;
 }): HostSession {
   const game: GameState = {
     id: sanitizeRoomId(args.roomId),
@@ -74,6 +75,7 @@ export function startHostSession(args: {
     ],
   };
 
+  args.onStatusUpdated?.('Contacting PeerJS Server...');
   const peer = new Peer(game.id);
   const connections = new Map<string, DataConnection>();
 
@@ -131,6 +133,7 @@ export function startHostSession(args: {
 
   peer.on('open', () => {
     clearTimeout(hostOpenTimeout);
+    args.onStatusUpdated?.('Peer Server Confirmed! Waiting for guests...');
     broadcast();
   });
 
@@ -188,7 +191,9 @@ export function startGuestSession(args: {
   playerName: string;
   onGameStateUpdated: (game: GameState) => void;
   onError: (message: string) => void;
+  onStatusUpdated?: (status: string) => void;
 }): GuestSession {
+  args.onStatusUpdated?.('Contacting PeerJS Server...');
   const peer = new Peer();
   let peerOpenTimeout = setTimeout(() => {
     if (!peer.open && !peer.disconnected) {
@@ -203,6 +208,7 @@ export function startGuestSession(args: {
 
   peer.on('open', () => {
     clearTimeout(peerOpenTimeout);
+    args.onStatusUpdated?.('Handshaking with Host...');
     
     // Now that guest peer is open, we can safely connect to host
     hostConnection = peer.connect(sanitizeRoomId(args.roomId), {
@@ -218,6 +224,7 @@ export function startGuestSession(args: {
 
     hostConnection.on('open', () => {
       clearTimeout(connectionTimeout);
+      args.onStatusUpdated?.('Waiting for game data...');
       
       stateTimeout = setTimeout(() => {
         args.onError('Host accepted connection but never sent game data. Host might be frozen.');

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -14,13 +14,18 @@ interface JoinGameDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   playerName: string;
+  initialGameId?: string;
 }
 
-export default function JoinGameDialog({ isOpen, setIsOpen, playerName }: JoinGameDialogProps) {
+export default function JoinGameDialog({ isOpen, setIsOpen, playerName, initialGameId }: JoinGameDialogProps) {
   const router = useRouter();
   const { showError } = useToast();
-  const [gameId, setGameId] = useState('');
+  const [gameId, setGameId] = useState(initialGameId || '');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialGameId) setGameId(initialGameId);
+  }, [initialGameId]);
 
   const handleJoinGame = async () => {
     const roomId = normalizeRoomId(gameId);
