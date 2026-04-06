@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { joinRoom } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,27 +18,35 @@ interface JoinGameDialogProps {
 export default function JoinGameDialog({ isOpen, setIsOpen, playerName }: JoinGameDialogProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const [roomCode, setRoomCode] = useState('');
+  const [gameId, setGameId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleJoinGame = async () => {
-    if (!roomCode.trim()) {
+    if (!gameId.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a room code.",
+        description: "Please enter a game ID.",
         variant: "destructive"
       });
       return;
     }
     setIsLoading(true);
     try {
-      const result = await joinRoom(playerName, roomCode.trim().toUpperCase());
-      if (result.success) {
-        router.push(`/game/${result.roomCode}`);
+      const response = await fetch('/api/join-game', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ gameId, playerName }),
+      });
+
+      if (response.ok) {
+        router.push(`/game/${gameId}`);
       } else {
+        const { error } = await response.json();
         toast({
           title: "Failed to Join",
-          description: result.error,
+          description: error,
           variant: "destructive"
         });
       }
@@ -60,18 +67,17 @@ export default function JoinGameDialog({ isOpen, setIsOpen, playerName }: JoinGa
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Join Game</DialogTitle>
-          <DialogDescription>Enter the room code to join a friend's game.</DialogDescription>
+          <DialogDescription>Enter the game ID to join a friend's game.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="room-code">Room Code</Label>
+            <Label htmlFor="game-id">Game ID</Label>
             <Input
-              id="room-code"
-              placeholder="XYZ123"
-              value={roomCode}
-              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-              className="text-lg uppercase tracking-widest"
-              maxLength={6}
+              id="game-id"
+              placeholder="Enter Game ID"
+              value={gameId}
+              onChange={(e) => setGameId(e.target.value)}
+              className="text-lg"
             />
           </div>
         </div>
