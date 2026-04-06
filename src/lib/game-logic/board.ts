@@ -55,17 +55,9 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
                 cols.add(11 + validAvailable[i]);
             }
             
-            // For row 9, we must connect to startCols, BUT standard boards use T-junctions
-            // where entry point is its own vertical path or doesn't X.
-            if (r === 9) {
-                // If we add startCols, we must be careful. For now, let's just use them
-                // but ensure they don't have Up-AND-Down at the EXACT same node in Step 3.
-                for (const sc of startCols) {
-                    cols.add(sc);
-                }
-            } else if (Math.random() > 0.7 && !takenByPreviousRow.has(11)) {
-                cols.add(11);
-            }
+            // For row 9, we used to add startCols, but the user wants NO vertical path
+            // directly above the entries. So we just skip that.
+            
             if (cols.size === 0) {
                // Fallback: pick one d not in takenByPreviousRow
                const fallbackDist = [3, 6, 9].find(d => !takenByPreviousRow.has(11 - d) && !takenByPreviousRow.has(11 + d));

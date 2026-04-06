@@ -325,14 +325,14 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                            <circle r="8" fill={stroke} opacity="0.4" />
                         </g>
                     )}
-                    {(isAllowedTarget || isClickablePawn) && (
-                       <circle 
-                          cx={cx} cy={cy} r={0.3} 
-                          fill="none" stroke="white" strokeWidth={0.04} 
-                          className="animate-pulse cursor-pointer" 
-                          onClick={() => handleNodeClick({r: k.r, c: k.c})}
-                       />
-                    )}
+                     {(isAllowedTarget || isClickablePawn) && (
+                        <circle 
+                           cx={cx} cy={cy} r={0.45} 
+                           fill="transparent" 
+                           className="animate-pulse cursor-pointer pointer-events-auto" 
+                           onClick={() => handleNodeClick({r: k.r, c: k.c})}
+                        />
+                     )}
                  </g>
                );
             }
@@ -345,8 +345,10 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
               <g key={`node-${strPos}`} onClick={() => handleNodeClick({r: k.r, c: k.c})} className={(isAllowedTarget || isClickablePawn) ? "cursor-pointer" : ""}>
                  <circle cx={cx} cy={cy} r={0.3} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
                  {isFinish && <circle cx={cx} cy={cy} r={0.35} fill="none" stroke="white" strokeWidth={0.05} />}
+                 {/* Hitbox overlay for easier clicking */}
+                 <circle cx={cx} cy={cy} r={0.45} fill="transparent" className={(isAllowedTarget || isClickablePawn) ? "cursor-pointer pointer-events-auto" : "pointer-events-none"} />
                  {(isAllowedTarget && state.status !== 'PLAATS_BARRICADE') && (
-                     <circle cx={cx} cy={cy} r={0.45} fill="none" stroke="white" strokeWidth={0.08} className="animate-pulse" />
+                     <circle cx={cx} cy={cy} r={0.45} fill="none" stroke="white" strokeWidth={0.08} className="animate-pulse pointer-events-none" />
                  )}
               </g>
             );
@@ -354,8 +356,8 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
 
           {/* Draw Barricades */}
           {state.barricades.map((b, idx) => {
-             const cx = b.c + 0.5;
-             const cy = b.r + 0.5;
+             const cx = b.c;
+             const cy = b.r;
              return (
                <rect 
                   key={`barricade-${idx}`} 
@@ -371,9 +373,9 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
           })}
 
           {/* Draw Pawns */}
-          {state.pionnen.map((p) => {
+           {state.pionnen.map((p) => {
              if (p.isFinished) return null;
-             const pos = animPos[p.id] || { cx: p.pos.c + 0.5, cy: p.pos.r + 0.5, arcOffset: 0 };
+             const pos = animPos[p.id] || { cx: p.pos.c, cy: p.pos.r, arcOffset: 0 };
              return (
                  <g 
                     key={`pawn-${p.id}`} 
@@ -391,9 +393,9 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
 
            {/* Dice History Nodes */}
           {(state.activePlayerIndices || []).map((slotId, idx) => {
-             const roll = state.laatsteWorpen[slotId];
-             if (!roll) return null;
-             const cx = (state.startCols?.[idx] ?? 11) + 0.5;
+              const roll = state.laatsteWorpen[slotId];
+              if (!roll) return null;
+              const cx = state.startCols?.[idx] ?? 11;
              const nameStr = slots?.[slotId]?.playerName || (slots?.[slotId]?.type === 'bot' ? 'Bot' : `Player ${slotId+1}`);
              const isActive = state.pionnen.some(p => p.playerIndex === slotId);
              
