@@ -184,7 +184,7 @@ export function startGuestSession(args: {
 }): GuestSession {
   const peer = new Peer();
   let connectionTimeout: ReturnType<typeof setTimeout>;
-
+  let stateTimeout: ReturnType<typeof setTimeout>;
   const hostConnection = peer.connect(sanitizeRoomId(args.roomId), {
     reliable: true,
   });
@@ -198,16 +198,27 @@ export function startGuestSession(args: {
 
   hostConnection.on('open', () => {
     clearTimeout(connectionTimeout);
-    const joinMsg: ClientMessage = {
-      type: 'joinRequest',
-      playerName: args.playerName.trim(),
-    };
-    hostConnection.send(joinMsg);
+    
+    // Start timeout for receiving the INITIAL game state
+    stateTimeout = setTimeout(() => {
+      args.onError('Host accepted connection but never sent game data. Host might be frozen.');
+      hostConnection.close();
+    }, 10000);
+
+    // Send join request with tiny delay to ensure Data Channel queue is ready
+    setTimeout(() => {
+      const joinMsg: ClientMessage = {
+        type: 'joinRequest',
+        playerName: args.playerName.trim(),
+      };
+      hostConnection.send(joinMsg);
+    }, 200);
   });
 
   hostConnection.on('data', (raw) => {
     const msg = raw as ClientMessage;
     if (msg?.type === 'gameStateUpdated') {
+      clearTimeout(stateTimeout); // Clear it once we get state
       args.onGameStateUpdated(msg.game);
     } else if (msg?.type === 'joinRejected') {
       args.onError(msg.reason || 'Failed to join room.');

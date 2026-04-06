@@ -143,7 +143,7 @@ function GamePageContent() {
                   value={slot.type}
                   onValueChange={(val) => {
                     let nextName = undefined;
-                    if (val === 'bot') nextName = `Bot ${slot.id}`;
+                    if (val === 'bot') nextName = `bot ${slot.id} 🤖`;
                     hostSession?.updateSlot(slot.id, val as SlotType, nextName);
                   }}
                 >
@@ -163,7 +163,7 @@ function GamePageContent() {
             } else {
               let display: string = slot.type;
               if (slot.type === 'player' || slot.type === 'host' || slot.type === 'bot') {
-                display = slot.playerName || (slot.type === 'bot' ? `Bot ${slot.id}` : display);
+                display = slot.playerName || (slot.type === 'bot' ? `bot ${slot.id} 🤖` : display);
               } else if (slot.type === 'open') {
                 display = 'Waiting for player...';
               } else if (slot.type === 'closed') {
