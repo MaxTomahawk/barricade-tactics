@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { BoardState, Position, PlayerColor, Pawn } from '@/lib/types';
+import { BoardState, Position, PlayerColor, Pawn, GameStatus } from '@/lib/types';
 import { vindZetten, posToStr } from '@/lib/game-logic/engine';
 
 interface GameBoardProps {
@@ -10,6 +10,17 @@ interface GameBoardProps {
   localPlayerIndex?: number;
   onAction: (action: any) => void;
 }
+
+const STATUS_MAP: Record<GameStatus, string> = {
+  MENU_TOTAAL: "Menu",
+  WACHT_OP_DOBBELSTEEN: "Waiting for dice",
+  DOBBELEN: "Rolling...",
+  SPELEN: "Your turn",
+  PLAATS_BARRICADE: "Move barricade",
+  GEEN_ZETTEN: "No moves possible",
+  GAME_OVER: "Game over",
+  PAUZE_MENU: "Paused"
+};
 
 const STATIC_COLORS = {
   barricade: '#854d0e',
@@ -225,7 +236,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
       <div className="portrait:hidden fixed inset-0 w-full h-[100dvh] max-w-none flex flex-col items-center justify-center select-none bg-slate-900 overflow-hidden shadow-2xl z-0">
         <div className="absolute top-2 left-4 right-4 flex justify-between items-center text-slate-200 uppercase tracking-widest text-xs font-bold z-10 pointer-events-none">
           <div>
-            Status: <span className="text-white">{state.status.replace('_', ' ')}</span>
+            Status: <span className="text-white">{STATUS_MAP[state.status] || state.status.replace(/_/g, ' ')}</span>
           </div>
           <div>
              Turn: Player {state.beurt + 1}
@@ -280,6 +291,50 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                fill = '#1e293b'; 
                stroke = playerSlot?.color || '#ffffff'; 
                strokeWidth = 0.1;
+
+               // Marking finish progress if more than 1 pin needed
+               const finishedForThisPlayer = state.pionnen.filter(p => p.playerIndex === k.speler_start && p.isFinished).length;
+               
+               // We need a way to stable-index these 4 start nodes. 
+               // Let's sort all start nodes for this player and pick the first N.
+               const playerStartNodes = Object.values(state.graph)
+                  .filter(n => n.is_start && n.speler_start === k.speler_start)
+                  .sort((a,b) => a.c !== b.c ? a.c - b.c : a.r - b.r);
+               
+               const nodeIdx = playerStartNodes.findIndex(sn => sn.r === k.r && sn.c === k.c);
+               const isMarkedFinished = nodeIdx !== -1 && nodeIdx < finishedForThisPlayer;
+
+               const strPos = posToStr(k);
+               const isAllowedTarget = allowedMoves.has(strPos);
+               const isClickablePawn = selectablePawns.has(strPos);
+
+               return (
+                 <g key={`node-${posToStr(k)}`}>
+                    <circle cx={cx} cy={cy} r={0.3} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+                    {isMarkedFinished && (
+                        <g transform={`translate(${cx}, ${cy}) scale(0.02)`}>
+                           <path 
+                              d="M12 15l-3-3m0 0l3-3m-3 3h8M5 12a7 7 0 1114 0 7 7 0 01-14 0z" 
+                              fill="none" 
+                              stroke={stroke} 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              transform="translate(-12,-12)"
+                           />
+                           <circle r="8" fill={stroke} opacity="0.3" />
+                        </g>
+                    )}
+                    {(isAllowedTarget || isClickablePawn) && (
+                       <circle 
+                          cx={cx} cy={cy} r={0.3} 
+                          fill="none" stroke="white" strokeWidth={0.04} 
+                          className="animate-pulse cursor-pointer" 
+                          onClick={() => handleNodeClick({r: k.r, c: k.c})}
+                       />
+                    )}
+                 </g>
+               );
             }
             
             const strPos = posToStr(k);

@@ -16,6 +16,7 @@ function HomeContent() {
   const [name, setName] = useState('');
   const [isHostDialogOpen, setIsHostDialogOpen] = useState(false);
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
+  const [lastRoomCode, setLastRoomCode] = useState<string | null>(null);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
@@ -26,6 +27,11 @@ function HomeContent() {
     const savedName = localStorage.getItem('playerName');
     if (savedName) {
       setName(savedName);
+    }
+    
+    const lastCode = localStorage.getItem('lastRoomCode');
+    if (lastCode) {
+      setLastRoomCode(lastCode);
     }
 
     if (joinRoomId) {
@@ -80,6 +86,24 @@ function HomeContent() {
               Join Game
             </Button>
           </div>
+          
+          {lastRoomCode && isNameValid && (
+            <div className="pt-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Button 
+                variant="outline" 
+                className="w-full border-dashed border-primary/40 hover:border-primary/80 hover:bg-primary/5 group"
+                onClick={() => {
+                   // Redirect to game with the last room code
+                   window.location.href = `/game?roomId=${lastRoomCode}`;
+                }}
+              >
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-primary transition-colors">Rejoin Last Game</span>
+                  <span className="text-sm font-mono font-bold">{lastRoomCode}</span>
+                </div>
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
       

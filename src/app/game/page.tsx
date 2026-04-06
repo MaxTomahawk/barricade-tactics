@@ -6,6 +6,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { GameState, HostSession, GuestSession, SlotType, startGuestSession, startHostSession } from '@/lib/webrtc-room';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { HelpCircle, Trophy, ChevronRight, Info } from 'lucide-react';
 
 const GAME_COLORS = [
   '#ef4444', // Red
@@ -259,6 +261,7 @@ function GamePageContent() {
 
 
   if (game.boardState) {
+     const bs = game.boardState;
      let localPlayerIndex = -1;
      if (isHostUser) localPlayerIndex = 0;
      else {
@@ -270,27 +273,107 @@ function GamePageContent() {
          }
      }
 
+     const finishedCount = bs.pionnen.filter(p => p.playerIndex === localPlayerIndex && p.isFinished).length;
+     const targetCount = game.settings.winCondition || 1;
+     const myColor = game.slots[localPlayerIndex]?.color || '#ffffff';
+
      return (
-        <main className="flex min-h-screen flex-col items-center py-10 px-4 bg-background overflow-auto">
-            <GameBoard 
-               state={game.boardState}
-               slots={game.slots}
-               localPlayerIndex={localPlayerIndex}
-               onAction={(action) => {
-                  if (isHostUser) {
-                      hostSession?.processAction(action);
-                  } else if (guestSession) {
-                      let reqMsg: any = null;
-                      if (action.type === 'ROLL_START') reqMsg = { type: 'requestRollDice' };
-                      if (action.type === 'MOVE') reqMsg = { type: 'requestMovePawn', pawnIdx: action.pawnIdx, target: action.target };
-                      if (action.type === 'BARRICADE') reqMsg = { type: 'requestPlaceBarricade', target: action.target };
-                      if (action.type === 'GEEN_ZETTEN_ACK') reqMsg = { type: 'requestNoMoves' };
-                      
-                      if (reqMsg) guestSession.sendToHost(reqMsg);
-                  }
-               }}
-            />
-        </main>
+       <div className="relative w-full h-screen overflow-hidden">
+         {/* Top UI Overlay */}
+         <div className="absolute top-2 right-4 flex items-center gap-4 z-20">
+            {/* Finish Progress Indicator */}
+            <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg group hover:border-yellow-500/50 transition-all cursor-help" title={`Goal: Get ${targetCount} pawns to the finish`}>
+               <Trophy size={16} className={finishedCount >= targetCount ? "text-yellow-400" : "text-white/40"} />
+               <div className="flex items-baseline gap-1">
+                  <span className="text-white font-bold text-sm">{finishedCount}</span>
+                  <span className="text-white/40 text-[10px]">/</span>
+                  <span className="text-white/60 text-xs font-medium">{targetCount}</span>
+               </div>
+            </div>
+
+            {/* Rules Menu */}
+            <Dialog>
+               <DialogTrigger asChild>
+                  <button className="flex items-center justify-center w-9 h-9 bg-slate-900/80 backdrop-blur-md rounded-full border border-white/10 text-white/70 hover:text-white hover:border-white/30 transition-all shadow-lg active:scale-95">
+                     <HelpCircle size={20} />
+                  </button>
+               </DialogTrigger>
+               <DialogContent className="bg-slate-900 border-white/10 text-slate-200 max-w-2xl max-h-[85vh] overflow-y-auto">
+                  <DialogHeader>
+                     <DialogTitle className="text-2xl font-bold flex items-center gap-2 mb-4">
+                        <Info className="text-primary" /> Rules of Barricade
+                     </DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="space-y-6 text-sm leading-relaxed">
+                     <section className="space-y-2">
+                        <h3 className="text-white font-semibold flex items-center gap-2">
+                           <ChevronRight size={14} className="text-primary" /> Objective
+                        </h3>
+                        <p>Be the first to reach the **Finish Node** at the top center with the required number of pawns.</p>
+                     </section>
+
+                     <section className="space-y-2">
+                        <h3 className="text-white font-semibold flex items-center gap-2">
+                           <ChevronRight size={14} className="text-primary" /> Movement & Capturing
+                        </h3>
+                        <p>Roll the dice and move exactly that many spaces. You can move in any direction but cannot backtrack in the same turn.</p>
+                        <ul className="list-disc list-inside space-y-1 ml-2 text-slate-400">
+                           <li>Jump over other pawns (your own or opponents).</li>
+                           <li>Landing on an opponent's pawn sends it back to its **Home slot**.</li>
+                           <li>Landing on a **Barricade** allows you to move it to any valid board node.</li>
+                        </ul>
+                     </section>
+
+                     <section className="space-y-2 p-4 bg-white/5 rounded-xl border border-white/5">
+                        <h3 className="text-white font-semibold mb-3">Active Session Rules</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <div className="flex flex-col gap-1">
+                              <span className="text-xs text-slate-500 uppercase tracking-wider">Win Condition</span>
+                              <span className="font-medium" style={{ color: myColor }}>{targetCount} pawn{targetCount > 1 ? 's' : ''} to finish</span>
+                           </div>
+                           <div className="flex flex-col gap-1">
+                              <span className="text-xs text-slate-500 uppercase tracking-wider">Capture Bonus</span>
+                              <span className="font-medium" style={{ color: myColor }}>
+                                 {game.settings.captureBonus ? "Extra roll after capture" : "Standard rules"}
+                              </span>
+                           </div>
+                           <div className="flex flex-col gap-1">
+                              <span className="text-xs text-slate-500 uppercase tracking-wider">Entry Protection</span>
+                              <span className="font-medium" style={{ color: myColor }}>
+                                 {game.settings.protectBottomRow ? "Row 1 is safe from barricades" : "No protection"}
+                              </span>
+                           </div>
+                           <div className="flex flex-col gap-1">
+                              <span className="text-xs text-slate-500 uppercase tracking-wider">Dice Mode</span>
+                              <span className="font-medium" style={{ color: myColor }}>{game.settings.diceMode.replace('_', ' ')}</span>
+                           </div>
+                        </div>
+                     </section>
+                  </div>
+               </DialogContent>
+            </Dialog>
+         </div>
+
+         <GameBoard 
+            state={bs} 
+            slots={game.slots} 
+            localPlayerIndex={localPlayerIndex} 
+            onAction={(action) => {
+               if (isHostUser) {
+                  hostSession?.processAction(action);
+               } else if (guestSession) {
+                  let reqMsg: any = null;
+                  if (action.type === 'ROLL_START') reqMsg = { type: 'requestRollDice' };
+                  if (action.type === 'MOVE') reqMsg = { type: 'requestMovePawn', pawnIdx: action.pawnIdx, target: action.target };
+                  if (action.type === 'BARRICADE') reqMsg = { type: 'requestPlaceBarricade', target: action.target };
+                  if (action.type === 'GEEN_ZETTEN_ACK') reqMsg = { type: 'requestNoMoves' };
+                  
+                  if (reqMsg) guestSession.sendToHost(reqMsg);
+               }
+            }}
+         />
+       </div>
      );
   }
 
