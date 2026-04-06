@@ -7,11 +7,14 @@ import { initializeBoardState } from './game-logic/engine';
 
 export type SlotType = 'host' | 'player' | 'open' | 'bot' | 'closed';
 
+export type PlayerColorHex = string;
+
 export type PlayerSlot = {
   id: number;
   type: SlotType;
   playerName?: string;
   connectionId?: string;
+  color: PlayerColorHex;
 };
 
 export type GameState = {
@@ -30,12 +33,13 @@ export type ClientMessage =
   | { type: 'requestRollDice' }
   | { type: 'requestMovePawn'; pawnIdx: number; target: Position }
   | { type: 'requestPlaceBarricade'; target: Position }
-  | { type: 'requestNoMoves' };
+  | { type: 'requestNoMoves' }
+  | { type: 'requestChangeColor'; slotId: number; color: string };
 
 export type HostSession = {
   peer: Peer;
   game: GameState;
-  updateSlot: (index: number, type: SlotType, pName?: string) => void;
+  updateSlot: (index: number, type: SlotType, pName?: string, color?: string) => void;
   updateSettings: (newSettings: Partial<GameSettings>) => void;
   broadcast: () => void;
   processAction: (action: any, connectionId?: string) => void;
@@ -84,10 +88,10 @@ export function startHostSession(args: {
     id: sanitizeRoomId(args.roomId),
     gameName: args.gameName,
     slots: [
-      { id: 0, type: 'host', playerName: args.hostName, connectionId: '' },
-      { id: 1, type: 'open' },
-      { id: 2, type: 'open' },
-      { id: 3, type: 'open' },
+      { id: 0, type: 'host', playerName: args.hostName, connectionId: '', color: '#ef4444' }, // Red
+      { id: 1, type: 'open', color: '#22c55e' }, // Green
+      { id: 2, type: 'open', color: '#3b82f6' }, // Blue
+      { id: 3, type: 'open', color: '#eab308' }, // Yellow
     ],
     settings: {
       captureBonus: false,
@@ -170,8 +174,8 @@ export function startHostSession(args: {
     if (result) broadcast();
   };
 
-  const updateSlot = (index: number, type: SlotType, pName?: string) => {
-    if (index < 1 || index > 3) return; 
+  const updateSlot = (index: number, type: SlotType, pName?: string, color?: string) => {
+    if (index < 0 || index > 3) return; 
     const slot = game.slots[index];
     
     if (slot.type === 'player' && slot.connectionId && type !== 'player') {
@@ -183,8 +187,11 @@ export function startHostSession(args: {
     }
 
     slot.type = type;
-    slot.playerName = pName;
-    slot.connectionId = undefined;
+    if (pName !== undefined) slot.playerName = pName;
+    if (color !== undefined) slot.color = color;
+    if (type === 'open' || type === 'bot' || type === 'closed') {
+       slot.connectionId = undefined;
+    }
     broadcast();
   };
 
@@ -216,11 +223,19 @@ export function startHostSession(args: {
       } else {
         if (msg.type.startsWith('request')) {
           // parse request intent manually for security later, map to action
-          let engineAction;
+          let engineAction: any;
           if (msg.type === 'requestRollDice') engineAction = { type: 'ROLL_START' };
-          if (msg.type === 'requestMovePawn') engineAction = { type: 'MOVE', pawnIdx: (msg as any).pawnIdx, target: (msg as any).target };
-          if (msg.type === 'requestPlaceBarricade') engineAction = { type: 'BARRICADE', target: (msg as any).target };
+          if (msg.type === 'requestMovePawn') engineAction = { type: 'MOVE', pawnIdx: msg.pawnIdx, target: msg.target };
+          if (msg.type === 'requestPlaceBarricade') engineAction = { type: 'BARRICADE', target: msg.target };
           if (msg.type === 'requestNoMoves') engineAction = { type: 'GEEN_ZETTEN_ACK' };
+          
+          if (msg.type === 'requestChangeColor') {
+            const requesterSlot = game.slots.find(s => s.connectionId === conn.peer);
+            if (requesterSlot && requesterSlot.id === msg.slotId) {
+                updateSlot(msg.slotId, requesterSlot.type, requesterSlot.playerName, msg.color);
+            }
+          }
+
           if (engineAction) processAction(engineAction, conn.peer);
         }
       }

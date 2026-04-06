@@ -6,16 +6,12 @@ import { vindZetten, posToStr } from '@/lib/game-logic/engine';
 
 interface GameBoardProps {
   state: BoardState;
-  slots?: { id: number, type: string, playerName?: string }[];
+  slots?: { id: number, type: string, playerName?: string, color: string }[];
   localPlayerIndex?: number;
   onAction: (action: any) => void;
 }
 
-const COLOR_MAP: Record<PlayerColor | 'barricade' | 'finish' | 'path', string> = {
-  red: '#ef4444',
-  green: '#22c55e',
-  blue: '#3b82f6',
-  yellow: '#eab308',
+const STATIC_COLORS = {
   barricade: '#854d0e',
   finish: '#eab308',
   path: '#334155'
@@ -245,7 +241,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                   key={idx} 
                   x1={e.x1} y1={e.y1} 
                   x2={e.x2} y2={e.y2} 
-                  stroke={COLOR_MAP.path} 
+                  stroke={STATIC_COLORS.path} 
                   strokeWidth={0.15} 
                   strokeLinecap="round" 
               />
@@ -256,7 +252,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
           {(state.startCols || []).map(c => {
              const cx = c + 0.5;
              return (
-                <g key={`home-links-${c}`} stroke={COLOR_MAP.path} strokeWidth={0.15} strokeLinecap="round">
+                <g key={`home-links-${c}`} stroke={STATIC_COLORS.path} strokeWidth={0.15} strokeLinecap="round">
                    {/* Entry to split */}
                    <line x1={cx} y1={10.5} x2={cx} y2={11.5} />
                    {/* Horizontal bridge */}
@@ -278,12 +274,11 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
             let stroke = '#0f172a';
             let strokeWidth = 0.06;
 
-            if (isFinish) fill = COLOR_MAP.finish;
+            if (isFinish) fill = STATIC_COLORS.finish;
             else if (isStart) {
-               const colors: PlayerColor[] = ['red', 'green', 'blue', 'yellow'];
-               const playerColorStr = COLOR_MAP[colors[k.speler_start]];
+               const playerSlot = slots?.find(s => s.id === k.speler_start);
                fill = '#1e293b'; 
-               stroke = playerColorStr; 
+               stroke = playerSlot?.color || '#ffffff'; 
                strokeWidth = 0.1;
             }
             
@@ -311,7 +306,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                   key={`barricade-${idx}`} 
                   x={cx - 0.3} y={cy - 0.3} 
                   width={0.6} height={0.6} 
-                  fill={COLOR_MAP.barricade} 
+                  fill={STATIC_COLORS.barricade} 
                   stroke="#451a03" 
                   strokeWidth={0.05} 
                   rx={0.1}
@@ -330,7 +325,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                     className="pointer-events-none" 
                     transform={`translate(${pos.cx}, ${pos.cy + pos.arcOffset})`}
                 >
-                   <circle cx={0} cy={0} r={0.25} fill={COLOR_MAP[p.color]} />
+                   <circle cx={0} cy={0} r={0.25} fill={p.color} />
                    <circle cx={0} cy={0} r={0.25} fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={0.05} />
                    {selectedPawnId === p.id && (
                        <circle cx={0} cy={0} r={0.35} fill="none" stroke="white" strokeWidth={0.08} className="animate-pulse" />
@@ -346,16 +341,15 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
              const cx = (state.startCols?.[idx] ?? 11) + 0.5;
              const nameStr = slots?.[slotId]?.playerName || (slots?.[slotId]?.type === 'bot' ? 'Bot' : `Player ${slotId+1}`);
              const isActive = state.pionnen.some(p => p.playerIndex === slotId);
-             const colors: PlayerColor[] = ['red', 'green', 'blue', 'yellow'];
              
              return (
                 <g key={`history-${slotId}`} transform={`translate(${cx}, ${BORD_ROWS + 3.5})`}>
-                   {isActive && <text x={0} y={-1.0} fill="rgba(255,255,255,0.8)" fontSize={0.3} fontFamily="sans-serif" fontWeight="bold" textAnchor="middle" style={{ textTransform: 'uppercase' }}>{nameStr}</text>}
+                   {isActive && <text x={0} y={-1.0} fill={slots?.find(s => s.id === slotId)?.color || "rgba(255,255,255,0.8)"} fontSize={0.3} fontFamily="sans-serif" fontWeight="bold" textAnchor="middle" style={{ textTransform: 'uppercase' }}>{nameStr}</text>}
                    
                    {roll ? (
                        <>
-                           <rect x={-0.4} y={-0.4} width={0.8} height={0.8} fill="#1e293b" rx={0.12} stroke={COLOR_MAP[colors[idx]]} strokeWidth={0.05} />
-                           <DiceDots value={roll} color={COLOR_MAP[colors[idx]]} size={0.8} />
+                           <rect x={-0.4} y={-0.4} width={0.8} height={0.8} fill="#1e293b" rx={0.12} stroke={slots?.find(s => s.id === slotId)?.color} strokeWidth={0.05} />
+                           <DiceDots value={roll} color={slots?.find(s => s.id === slotId)?.color || '#fff'} size={0.8} />
                        </>
                    ) : null}
                 </g>
@@ -365,15 +359,14 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
         
         {/* Dice & Interactions */}
         {(state.status === "WACHT_OP_DOBBELSTEEN" || state.status === "DOBBELEN" || state.status === "SPELEN" || state.status === "PLAATS_BARRICADE" || state.status === "GEEN_ZETTEN") && (() => {
-            const colors: PlayerColor[] = ['red', 'green', 'blue', 'yellow'];
-            const currentColor = COLOR_MAP[colors[state.beurt]] || '#fff';
+            const currentColor = slots?.find(s => s.id === state.beurt)?.color || '#fff';
             
             return (
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center z-20 shrink-0">
               {state.status === "PLAATS_BARRICADE" ? (
                   <div className="w-20 h-20 bg-slate-800/80 border-4 border-amber-700 rounded-2xl flex items-center justify-center shadow-xl">
                       <svg viewBox="0 0 24 24" className="w-10 h-10">
-                          <rect x="4" y="4" width="16" height="16" rx="3" fill={COLOR_MAP.barricade} stroke="#451a03" strokeWidth="1.5" />
+                          <rect x="4" y="4" width="16" height="16" rx="3" fill={STATIC_COLORS.barricade} stroke="#451a03" strokeWidth="1.5" />
                           <text x="12" y="16" fill="white" fontSize="9" fontWeight="bold" textAnchor="middle">B</text>
                       </svg>
                   </div>
@@ -384,7 +377,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                      </svg>
                   </button>
               ) : (
-                  <div className="w-20 h-20 bg-slate-800/80 border-4 border-slate-600 rounded-2xl flex items-center justify-center shadow-inner relative overflow-hidden">
+                  <div className="w-20 h-20 bg-slate-800/80 border-4 rounded-2xl flex items-center justify-center shadow-inner relative overflow-hidden" style={{ borderColor: currentColor }}>
                       {state.status === 'DOBBELEN' ? (
                           <RollingDice color={currentColor} diceMode={state.settings.diceMode} />
                       ) : state.dobbelsteen > 0 ? (

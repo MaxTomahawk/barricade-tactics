@@ -5,6 +5,60 @@ import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { GameState, HostSession, GuestSession, SlotType, startGuestSession, startHostSession } from '@/lib/webrtc-room';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+const GAME_COLORS = [
+  '#ef4444', // Red
+  '#22c55e', // Green
+  '#3b82f6', // Blue
+  '#eab308', // Yellow
+  '#a855f7', // Purple
+  '#f97316', // Orange
+  '#06b6d4', // Cyan
+  '#ec4899', // Pink
+  '#84cc16', // Lime
+  '#6366f1'  // Indigo
+];
+
+function ColorPicker({ 
+  current, 
+  onChange, 
+  disabled,
+  used = []
+}: { 
+  current: string; 
+  onChange: (color: string) => void; 
+  disabled?: boolean;
+  used?: string[];
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger disabled={disabled}>
+        <div 
+          className={`w-8 h-8 rounded-full border-2 border-white/20 shadow-inner cursor-pointer hover:scale-110 transition-transform ${disabled ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
+          style={{ backgroundColor: current }}
+        />
+      </PopoverTrigger>
+      <PopoverContent className="w-48 bg-slate-900 border-white/10 p-2">
+        <div className="grid grid-cols-5 gap-2">
+          {GAME_COLORS.map(c => {
+            const isUsed = used.includes(c) && c !== current;
+            return (
+              <button
+                key={c}
+                disabled={isUsed}
+                onClick={() => onChange(c)}
+                className={`w-6 h-6 rounded-full border border-white/10 transition-transform ${current === c ? 'ring-2 ring-white scale-110' : 'hover:scale-125'} ${isUsed ? 'opacity-20 cursor-not-allowed grayscale' : ''}`}
+                style={{ backgroundColor: c }}
+              />
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 import { GameBoard } from '@/components/ui/GameBoard';
 import { initializeBoardState, calculateBotAction } from '@/lib/game-logic/engine';
 
@@ -153,13 +207,13 @@ function GamePageContent() {
        const timer = setTimeout(() => {
            if (bs.status === 'WACHT_OP_DOBBELSTEEN') {
               hostSession.processAction({ type: 'ROLL_START' });
-           } else if (bs.status === 'GEEN_ZETTEN') {
-              hostSession.processAction({ type: 'GEEN_ZETTEN_ACK' });
-           } else if (bs.status === 'SPELEN') {
-              const botAction = calculateBotAction(bs);
-              if (botAction) hostSession.processAction(botAction);
-              else hostSession.processAction({ type: 'GEEN_ZETTEN_ACK' }); // fallback
-           }
+            } else if (bs.status === 'GEEN_ZETTEN') {
+               hostSession.processAction({ type: 'GEEN_ZETTEN_ACK' });
+            } else if (bs.status === 'SPELEN' || bs.status === 'PLAATS_BARRICADE') {
+               const botAction = calculateBotAction(bs);
+               if (botAction) hostSession.processAction(botAction);
+               else if (bs.status === 'SPELEN') hostSession.processAction({ type: 'GEEN_ZETTEN_ACK' }); // fallback
+            }
        }, delay);
        return () => clearTimeout(timer);
     }
@@ -316,30 +370,49 @@ function GamePageContent() {
           {game.slots.map((slot) => {
             const isHost = slot.type === 'host';
             const label = isHost ? 'Host' : `Slot ${slot.id}`;
+            
+            const isGuestSelf = !isHostUser && guestSession && game.slots.find(s => s.connectionId === guestSession.peer.id)?.id === slot.id;
+            const canChangeColor = isHostUser ? (isHost || slot.type === 'bot') : isGuestSelf;
+
+            const handleColorChange = (color: string) => {
+              if (isHostUser) {
+                hostSession?.updateSlot(slot.id, slot.type, slot.playerName, color);
+              } else if (isGuestSelf) {
+                guestSession?.sendToHost({ type: 'requestChangeColor', slotId: slot.id, color });
+              }
+            };
 
             let content;
             if (isHostUser && !isHost) {
               content = (
-                <Select
-                  value={slot.type}
-                  onValueChange={(val) => {
-                    let nextName = undefined;
-                    if (val === 'bot') nextName = `bot ${slot.id} 🤖`;
-                    hostSession?.updateSlot(slot.id, val as SlotType, nextName);
-                  }}
-                >
-                  <SelectTrigger className="w-full bg-background border-input">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="open">Open (Waiting)</SelectItem>
-                    <SelectItem value="bot">Bot</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
-                    {slot.type === 'player' && (
-                      <SelectItem value="player">{slot.playerName} (Player)</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-3 items-center">
+                  <ColorPicker 
+                    current={slot.color} 
+                    onChange={handleColorChange} 
+                    disabled={slot.type === 'closed' || slot.type === 'open'} 
+                    used={game.slots.filter(s => s.type !== 'open' && s.type !== 'closed').map(s => s.color)}
+                  />
+                  <Select
+                    value={slot.type}
+                    onValueChange={(val) => {
+                      let nextName = undefined;
+                      if (val === 'bot') nextName = `bot ${slot.id} 🤖`;
+                      hostSession?.updateSlot(slot.id, val as SlotType, nextName);
+                    }}
+                  >
+                    <SelectTrigger className="w-full bg-background border-input">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Open (Waiting)</SelectItem>
+                      <SelectItem value="bot">Bot</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                      {slot.type === 'player' && (
+                        <SelectItem value="player">{slot.playerName} (Player)</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
               );
             } else {
               let display: string = slot.type;
@@ -355,7 +428,17 @@ function GamePageContent() {
               if (slot.type === 'open') extraStyle = 'text-muted-foreground italic';
               if (slot.type === 'closed') extraStyle = 'text-muted-foreground line-through';
 
-              content = <div className={`text-lg py-2 ${extraStyle}`}>{display}</div>;
+              content = (
+                <div className="flex gap-3 items-center">
+                   <ColorPicker 
+                      current={slot.color} 
+                      onChange={handleColorChange} 
+                      disabled={!canChangeColor || slot.type === 'closed' || slot.type === 'open'} 
+                      used={game.slots.filter(s => s.type !== 'open' && s.type !== 'closed').map(s => s.color)}
+                    />
+                   <div className={`text-lg py-2 ${extraStyle}`}>{display}</div>
+                </div>
+              );
             }
 
             return (

@@ -14,11 +14,11 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
     if (playerCount === 1) {
         startCols.push(11); // center
     } else if (playerCount === 2) {
-        startCols.push(5, 17);
+        startCols.push(5, 17); // Perfectly symmetric (6 from center)
     } else if (playerCount === 3) {
-        startCols.push(4, 11, 18);
+        startCols.push(5, 11, 17); // Symmetric around center (0, 6, 6)
     } else {
-        startCols.push(2, 8, 14, 20);
+        startCols.push(5, 9, 13, 17); // Compact & symmetric (6, 2, 2, 6)
     }
 
     const bridgesByRow: Record<number, number[]> = {};
@@ -48,6 +48,13 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
             for (let i = 0; i < count && i < available.length; i++) {
                 cols.add(11 - available[i]);
                 cols.add(11 + available[i]);
+            }
+            
+            // Ensure every start column has a potential vertical path nearby at row 9
+            if (r === 9) {
+                for (const sc of startCols) {
+                    cols.add(sc);
+                }
             }
             
             if (Math.random() > 0.7) cols.add(11);

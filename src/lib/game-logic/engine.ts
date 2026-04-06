@@ -20,7 +20,7 @@ export function initializeBoardState(slots: { id: number, type: string }[], sett
     let pawnIdCounter = 0;
 
     for (let i = 0; i < activeSlots.length; i++) {
-        const slot = activeSlots[i];
+        const slot = activeSlots[i] as any; // Cast as any to access the new color property
         const c = startCols[i];
         const startOffsets = [[1, -1], [1, 1], [2, -1], [2, 1]];
         for (let j = 0; j < 4; j++) {
@@ -28,11 +28,11 @@ export function initializeBoardState(slots: { id: number, type: string }[], sett
             pawns.push({
                 id: pawnIdCounter++,
                 playerId: '',
-                playerIndex: slot.id, // Use the SLOT id, not the loop index
+                playerIndex: slot.id,
                 pos: { r: start_row + r_offset, c: c + c_offset },
                 isHome: true,
                 isFinished: false,
-                color: colors[i % 4],
+                color: slot.color || '#ffffff', // Use the slot's chosen color
             });
         }
     }
@@ -54,6 +54,7 @@ export function initializeBoardState(slots: { id: number, type: string }[], sett
         settings,
         activePlayerIndices: activeIndices,
         startCols,
+        lastMoveHadCapture: false,
     };
 }
 
@@ -220,18 +221,22 @@ export function calculateBotAction(state: BoardState): { type: "BARRICADE", targ
                 
                 if (gevaarlijkste_pion_pos) {
                     const dist = Math.abs(plek.r - gevaarlijkste_pion_pos.r) + Math.abs(plek.c - gevaarlijkste_pion_pos.c);
-                    if (dist < 5) {
-                        score += (5 - dist) * 2;
-                    }
-                }
-                
-                score += Math.floor(Math.random() * 6);
-                if (score > max_score) {
-                    max_score = score;
-                    beste_plek = plek;
+                if (dist < 5) {
+                    score += (8 - dist) * 15; // Higher priority to block closer opponents
                 }
             }
-            return { type: "BARRICADE", target: beste_plek };
+            
+            // Avoid blocking own pawns too much
+            if (eigen_paden.some(pad => pad.some(p => p.r === plek.r && p.c === plek.c))) {
+                score -= 50;
+            }
+
+            if (score > max_score) {
+                max_score = score;
+                beste_plek = plek;
+            }
+        }
+        return { type: "BARRICADE", target: beste_plek };
         }
         return null;
     }
@@ -309,37 +314,55 @@ export function processGameAction(state: BoardState, playerIndex: number, totalP
         
         p.pos = action.target;
         
-        // Remove barricade if landed on
         const bIdx = state.barricades.findIndex(b => b.r === action.target.r && b.c === action.target.c);
         if (bIdx !== -1) {
             state.barricades.splice(bIdx, 1);
             state.opgepakteBarricadePos = action.target;
             state.status = "PLAATS_BARRICADE";
+            // Check for bonus turn flag
+            if (state.settings.captureBonus) {
+                state.lastMoveHadCapture = true;
+            }
             return true;
         }
 
         // Eat opponent pawn
+        let capturedPawn = false;
         for (const other of state.pionnen) {
             if (other.id !== p.id && other.pos.r === action.target.r && other.pos.c === action.target.c) {
                 const startNodes = Object.values(state.graph).filter((n: any) => n.is_start && n.speler_start === other.playerIndex);
                 for (const sn of startNodes) {
                     if (!state.pionnen.some(op => op.pos.r === sn.r && op.pos.c === sn.c)) {
                         other.pos = { r: sn.r, c: sn.c };
+                        capturedPawn = true;
                         break;
                     }
                 }
             }
         }
+
+        if (capturedPawn && state.settings.captureBonus) {
+            state.lastMoveHadCapture = true;
+        }
         
         // Check finish
         if (action.target.r === FINISH_POS.r && action.target.c === FINISH_POS.c) {
             p.isFinished = true;
-            state.status = "GAME_OVER";
-            state.winnaar = state.beurt;
-            return true;
+            const finishedCount = state.pionnen.filter(pion => pion.playerIndex === state.beurt && pion.isFinished).length;
+            if (finishedCount >= (state.settings.winCondition || 1)) {
+                state.status = "GAME_OVER";
+                state.winnaar = state.beurt;
+                return true;
+            }
         }
         
-        nextTurn(state, totalPlayers);
+        if (state.lastMoveHadCapture) {
+            state.lastMoveHadCapture = false;
+            state.dobbelsteen = 0;
+            state.status = "WACHT_OP_DOBBELSTEEN";
+        } else {
+            nextTurn(state, totalPlayers);
+        }
         return true;
     }
     
@@ -357,7 +380,14 @@ export function processGameAction(state: BoardState, playerIndex: number, totalP
         
         state.barricades.push(action.target);
         state.opgepakteBarricadePos = null;
-        nextTurn(state, totalPlayers);
+        
+        if (state.lastMoveHadCapture) {
+            state.lastMoveHadCapture = false;
+            state.dobbelsteen = 0;
+            state.status = "WACHT_OP_DOBBELSTEEN";
+        } else {
+            nextTurn(state, totalPlayers);
+        }
         return true;
     }
     

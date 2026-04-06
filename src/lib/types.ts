@@ -1,5 +1,5 @@
 export type Position = { r: number; c: number };
-export type PlayerColor = 'red' | 'green' | 'blue' | 'yellow';
+export type PlayerColor = string;
 
 export interface BoardNode {
     r: number;
@@ -44,4 +44,5 @@ export interface BoardState {
     settings: GameSettings;
     activePlayerIndices: number[];
     startCols: number[];
+    lastMoveHadCapture?: boolean;
 }
