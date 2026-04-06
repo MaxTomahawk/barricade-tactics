@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { GameState, startGuestSession, startHostSession } from '@/lib/webrtc-room';
+import { GameState, HostSession, SlotType, startGuestSession, startHostSession } from '@/lib/webrtc-room';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type SessionInfo = {
   role: 'host' | 'guest';
@@ -19,6 +20,8 @@ function GamePageContent() {
   const [game, setGame] = useState<GameState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  const [hostSession, setHostSession] = useState<HostSession | null>(null);
   const shutdownRef = useRef<null | (() => void)>(null);
 
   useEffect(() => {
@@ -62,6 +65,7 @@ function GamePageContent() {
         onGameStateUpdated,
         onError: onPeerError,
       });
+      setHostSession(host);
       shutdownRef.current = host.shutdown;
       return () => {
         shutdownRef.current?.();
@@ -104,12 +108,14 @@ function GamePageContent() {
   }
 
   if (error) {
-    return <div className="p-8 text-red-500">{error}</div>;
+    return <div className="p-8 text-red-500 font-medium">{error}</div>;
   }
 
   if (!game) {
     return <div className="p-8">Game not found.</div>;
   }
+
+  const isHostUser = !!hostSession;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-background">
@@ -118,20 +124,72 @@ function GamePageContent() {
       <button
         type="button"
         onClick={copyInvite}
-        className="mb-8 rounded-md bg-primary px-4 py-2 text-primary-foreground hover:opacity-90"
+        className="mb-8 rounded-md bg-primary px-4 py-2 text-primary-foreground hover:opacity-90 transition-opacity"
       >
         Copy Invite Link
       </button>
 
       <div className="w-full max-w-2xl">
-        <h3 className="text-xl font-semibold mb-4">Players:</h3>
-        <ul className="space-y-2">
-          {game.players.map((player) => (
-            <li key={player} className="p-4 bg-muted rounded-lg text-lg">
-              {player}
-            </li>
-          ))}
-        </ul>
+        <h3 className="text-xl font-semibold mb-6">Players & Slots</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {game.slots.map((slot) => {
+            const isHost = slot.type === 'host';
+            const label = isHost ? 'Host' : `Slot ${slot.id}`;
+
+            let content;
+            if (isHostUser && !isHost) {
+              content = (
+                <Select
+                  value={slot.type}
+                  onValueChange={(val) => {
+                    let nextName = undefined;
+                    if (val === 'bot') nextName = `Bot ${slot.id}`;
+                    hostSession?.updateSlot(slot.id, val as SlotType, nextName);
+                  }}
+                >
+                  <SelectTrigger className="w-full bg-background border-input">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Open (Waiting)</SelectItem>
+                    <SelectItem value="bot">Bot</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                    {slot.type === 'player' && (
+                      <SelectItem value="player">{slot.playerName} (Player)</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              );
+            } else {
+              let display: string = slot.type;
+              if (slot.type === 'player' || slot.type === 'host' || slot.type === 'bot') {
+                display = slot.playerName || (slot.type === 'bot' ? `Bot ${slot.id}` : display);
+              } else if (slot.type === 'open') {
+                display = 'Waiting for player...';
+              } else if (slot.type === 'closed') {
+                display = 'Closed';
+              }
+
+              let extraStyle = '';
+              if (slot.type === 'open') extraStyle = 'text-muted-foreground italic';
+              if (slot.type === 'closed') extraStyle = 'text-muted-foreground line-through';
+
+              content = <div className={`text-lg py-2 ${extraStyle}`}>{display}</div>;
+            }
+
+            return (
+              <div
+                key={slot.id}
+                className="p-4 bg-muted border border-border rounded-lg flex flex-col gap-2"
+              >
+                <span className="text-sm text-foreground/60 uppercase font-semibold tracking-wider">
+                  {label}
+                </span>
+                {content}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </main>
   );
@@ -139,7 +197,7 @@ function GamePageContent() {
 
 export default function GamePage() {
   return (
-    <Suspense fallback={<div className="p-8">Loading game...</div>}>
+    <Suspense fallback={<div className="p-8">Loading game location...</div>}>
       <GamePageContent />
     </Suspense>
   );

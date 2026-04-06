@@ -1,0 +1,8 @@
+src/app/game/page.tsx(166,17): error TS2322: Type 'string' is not assignable to type 'SlotType'.
+src/app/game/page.tsx(168,17): error TS2322: Type '"Waiting for player..."' is not assignable to type 'SlotType'.
+src/app/game/page.tsx(170,17): error TS2820: Type '"Closed"' is not assignable to type 'SlotType'. Did you mean '"closed"'?
+src/components/ui/calendar.tsx(57,9): error TS2353: Object literal may only specify known properties, and 'IconLeft' does not exist in type 'Partial<CustomComponents>'.
+src/components/ui/calendar.tsx(57,22): error TS7031: Binding element 'className' implicitly has an 'any' type.
+src/components/ui/calendar.tsx(60,23): error TS7031: Binding element 'className' implicitly has an 'any' type.
+src/components/ui/sidebar.tsx(8,29): error TS2307: Cannot find module '@/hooks/use-mobile' or its corresponding type declarations.
+src/lib/game-logic/board.ts(1,56): error TS2307: Cannot find module '../types' or its corresponding type declarations.
