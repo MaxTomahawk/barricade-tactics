@@ -51,59 +51,29 @@ export function Sidebar({
     GAME_OVER: 'Over'
   };
 
-  // Mini Actionable Die for Collapsed Sidebar
-  const miniDice = (
-    <div className="flex flex-col items-center gap-1 mt-2">
-      {state.status === "PLAATS_BARRICADE" ? (
-        <div className="w-8 h-8 bg-amber-800 border-2 border-amber-600 rounded-lg flex items-center justify-center shadow-lg">
-          <span className="text-[10px] font-bold text-white">B</span>
-        </div>
-      ) : state.status === "WACHT_OP_DOBBELSTEEN" && isMyTurn ? (
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            onAction({ type: 'ROLL_START' });
-          }} 
-          className="w-10 h-10 bg-slate-800 border-2 rounded-xl shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all animate-pulse" 
-          style={{ borderColor: activeSlot?.color }}
-        >
-          <div className="scale-75"><DiceDots value={6} color={activeSlot?.color || '#fff'} size={0.8} /></div>
-        </button>
-      ) : (
-        <div className="w-10 h-10 bg-slate-800/80 border-2 rounded-xl flex items-center justify-center shadow-inner relative overflow-hidden" style={{ borderColor: activeSlot?.color }}>
-          {state.status === 'DOBBELEN' ? (
-            <div className="scale-50"><RollingDice color={activeSlot?.color || '#fff'} diceMode={state.settings.diceMode} size={10} /></div>
-          ) : (
-            <div className={`scale-75 transition-all ${state.dobbelsteen === 0 ? 'opacity-20' : 'opacity-100'}`}>
-              <DiceDots value={state.dobbelsteen || 5} color={activeSlot?.color || '#fff'} size={0.8} />
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  // miniDice removed, we will use diceContent directly in the collapsed sidebar
 
   if (!isExpanded && isMobile) {
     return (
       <div 
-        className="sidebar-container fixed right-0 top-0 h-full w-[3.5rem] bg-slate-900/90 backdrop-blur-md border-l border-white/10 flex flex-col items-center py-2 gap-4 shadow-2xl z-50 transition-all cursor-pointer"
+        className="sidebar-container fixed right-0 top-0 h-full w-[7rem] bg-slate-900/90 backdrop-blur-md border-l border-white/10 flex flex-col items-center py-2 gap-4 shadow-2xl z-50 transition-all cursor-pointer"
         onClick={() => setIsExpanded(true)}
       >
         <button className="flex items-center justify-center p-1 text-white/30 hover:text-white transition-colors">
           <ChevronRight className="w-4 h-4 rotate-180" />
         </button>
 
-        {/* Status Indicator */}
-        <div className="w-8 h-8 rounded-full border-2 border-white/20 shadow-lg relative flex items-center justify-center" style={{ backgroundColor: activeSlot?.color }}>
-          {state.status === 'WACHT_OP_DOBBELSTEEN' && (
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping" />
-          )}
+        <div className="flex flex-col items-center gap-1 mt-2 w-full">
+          <div className="px-2 py-0.5 rounded-full bg-slate-800 border border-white/5 text-[10px] font-bold text-primary animate-pulse mb-1">
+            {statusLabels[state.status] || state.status}
+          </div>
+          <div className="scale-75 flex items-center justify-center -my-2">
+             {diceContent}
+          </div>
         </div>
 
-        {miniDice}
-
         {/* Detailed Mini Leaderboard */}
-        <div className="flex-grow flex flex-col items-center gap-3 overflow-y-auto w-full px-1 py-2">
+        <div className="flex-grow flex flex-col items-center gap-3 overflow-y-auto w-full px-2 py-2">
           {slots?.filter(s => s.type !== 'open' && s.type !== 'closed').map(slot => {
             const finishedCount = state.pionnen.filter(p => p.playerIndex === slot.id && p.isFinished).length;
             const isTurn = state.beurt === slot.id;
@@ -112,19 +82,23 @@ export function Sidebar({
             return (
               <div 
                 key={slot.id} 
-                className={`flex flex-col items-center gap-1 p-1 rounded-md transition-all ${isTurn ? 'bg-white/5 border border-white/10' : ''}`}
+                className={`flex items-center justify-between p-1.5 md:p-3 rounded-lg transition-all w-full ${isTurn ? 'bg-primary/10 border border-primary/20' : 'bg-white/5 border border-white/5'}`}
               >
-                <div 
-                  className={`w-6 h-6 rounded-full border flex flex-col items-center justify-center transition-all ${isTurn ? 'border-primary ring-2 ring-primary/20 scale-110' : 'border-white/10'}`}
-                  style={{ backgroundColor: slot.color }}
-                >
-                   <span className="text-[9px] font-black text-white mix-blend-difference">{finishedCount}</span>
-                </div>
-                {lastThrow && (
-                  <div className="scale-[0.4] -mt-1 opacity-80">
-                    <StaticDice value={lastThrow} color={slot.color} size={6} />
-                  </div>
-                )}
+                 <div className="flex items-center gap-2 min-w-0">
+                    {lastThrow ? (
+                      <div className="shrink-0 scale-[0.6] origin-left">
+                        <StaticDice value={lastThrow} color={slot.color} size={6} />
+                      </div>
+                    ) : (
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: slot.color }} />
+                    )}
+                 </div>
+                 <div className="flex items-center gap-1 shrink-0">
+                    <Trophy size={10} className={finishedCount > 0 ? "text-yellow-500" : "text-slate-700"} />
+                    <span className="text-[10px] font-bold text-white">
+                      {finishedCount}/{state.settings.winCondition || 1}
+                    </span>
+                 </div>
               </div>
             );
           })}
@@ -153,28 +127,17 @@ export function Sidebar({
       )}
 
       {/* Game Status Card */}
-      <div className={`sidebar-status-card bg-white/5 rounded-2xl p-2 md:p-5 border border-white/5 flex flex-col items-center gap-1 md:gap-4 text-center ${isMobile ? 'mt-6' : ''}`}>
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-[9px] uppercase tracking-[0.2em] text-slate-500 font-bold">Active Player</span>
-          <span className={`${isMobile ? 'text-sm' : 'text-xl'} font-black text-white flex items-center gap-1.5`}>
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: activeSlot?.color }} />
-            {activeSlot?.playerName || `Player ${state.beurt + 1}`}
+      <div className={`sidebar-status-card bg-white/5 rounded-2xl p-2 md:p-5 border border-white/5 flex flex-row items-center justify-between gap-4 w-full ${isMobile ? 'mt-6' : ''}`}>
+        <div className="px-3 py-1.5 rounded-full bg-slate-800 border border-white/5 whitespace-nowrap">
+          <span className="text-xs font-bold text-primary animate-pulse">
+            {statusLabels[state.status] || state.status}
           </span>
         </div>
 
-        <div className="w-full h-px bg-white/5" />
-
-        <div className="flex flex-col items-center gap-2">
-          <span className="text-[9px] uppercase tracking-[0.2em] text-slate-500 font-bold">Action</span>
-          <div className="px-3 py-1 rounded-full bg-slate-800 border border-white/5">
-            <span className="text-xs font-bold text-primary animate-pulse">
-              {statusLabels[state.status] || state.status}
-            </span>
-          </div>
-        </div>
-
-        <div className={isMobile ? "scale-75 -my-2" : "mt-2"}>
-           {diceContent}
+        <div className="flex items-center justify-center flex-grow">
+           <div className={isMobile ? "scale-[0.8]" : ""}>
+             {diceContent}
+           </div>
         </div>
       </div>
 
