@@ -35,15 +35,14 @@ export default function HostGameDialog({ isOpen, setIsOpen, playerName }: HostGa
     const roomId = createRoomId();
 
     localStorage.setItem('playerName', trimmedPlayerName);
-    localStorage.setItem(
-      'barricadeSession',
-      JSON.stringify({
-        role: 'host',
-        roomId,
-        gameName: trimmedGameName,
-        playerName: trimmedPlayerName,
-      })
-    );
+    const sessionData = {
+      role: 'host',
+      roomId,
+      gameName: trimmedGameName,
+      playerName: trimmedPlayerName,
+    };
+    localStorage.setItem('barricadeSession', JSON.stringify(sessionData));
+    localStorage.setItem(`barricade_session_${roomId}`, JSON.stringify(sessionData));
 
     setIsOpen(false);
     setIsLoading(false);

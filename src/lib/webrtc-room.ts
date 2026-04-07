@@ -108,19 +108,114 @@ export function startHostSession(args: {
   };
 
   args.onStatusUpdated?.('Contacting PeerJS Server...');
-  const peer = new Peer(game.id);
+  let peer: Peer;
   const connections = new Map<string, DataConnection>();
+  let attempt = 0;
+  const maxAttempts = 4;
 
-  // Immediately notify the UI of the game state so the host doesn't have to wait for PeerJS server
-  // to just see their own lobby.
-  args.onGameStateUpdated(game);
+  const initPeer = () => {
+    attempt++;
+    peer = new Peer(game.id);
+    
+    // Immediately notify the UI of the game state
+    args.onGameStateUpdated(game);
 
-  let hostOpenTimeout = setTimeout(() => {
-    if (!peer.open && !peer.disconnected) {
-      args.onError('Failed to start as Host. PeerJS servers might be rate-limiting you.');
-      peer.destroy();
+    let hostOpenTimeout = setTimeout(() => {
+      if (!peer.open && !peer.disconnected) {
+        args.onError('Failed to start as Host. PeerJS servers might be rate-limiting you.');
+        peer.destroy();
+      }
+    }, 6000);
+
+    peer.on('open', () => {
+      clearTimeout(hostOpenTimeout);
+      args.onStatusUpdated?.('Peer Server Confirmed! Waiting for guests...');
+      broadcast();
+    });
+
+    if (peer.open) {
+      clearTimeout(hostOpenTimeout);
+      args.onStatusUpdated?.('Peer Server Confirmed! Waiting for guests...');
+      broadcast();
     }
-  }, 6000);
+
+    peer.on('error', (err: any) => {
+      if (err.type === 'unavailable-id' && attempt < maxAttempts) {
+        args.onStatusUpdated?.(`Room ID busy, retrying (${attempt}/${maxAttempts-1})...`);
+        peer.destroy();
+        setTimeout(initPeer, 1500);
+        return;
+      }
+      args.onError(err.message || 'Host connection error');
+    });
+
+    peer.on('connection', (conn) => {
+      connections.set(conn.peer, conn);
+
+      conn.on('data', (raw) => {
+        const msg = raw as ClientMessage;
+        if (msg?.type === 'joinRequest') {
+          const playerName = msg.playerName.trim();
+          if (!playerName) return;
+
+          // Check if player is already in a slot (e.g. re-joining after refresh)
+          const existingSlot = game.slots.find(s => s.playerName === playerName && (s.type === 'player' || s.type === 'host'));
+          
+          if (existingSlot) {
+            existingSlot.connectionId = conn.peer;
+            existingSlot.type = 'player'; 
+            broadcast();
+            return;
+          }
+
+          const openSlot = game.slots.find(s => s.type === 'open');
+          if (openSlot) {
+            openSlot.type = 'player';
+            openSlot.playerName = playerName;
+            openSlot.connectionId = conn.peer;
+            broadcast();
+          } else {
+            conn.send({ type: 'joinRejected', reason: 'Room is full or no open slots available.' });
+            setTimeout(() => conn.close(), 500);
+          }
+        } else {
+          if (msg.type.startsWith('request')) {
+            if (msg.type === 'requestStartGame') {
+              startGame();
+            }
+
+            // parse request intent manually for security later, map to action
+            let engineAction: any;
+            if (msg.type === 'requestRollDice') engineAction = { type: 'ROLL_START' };
+            if (msg.type === 'requestMovePawn') engineAction = { type: 'MOVE', pawnIdx: msg.pawnIdx, target: msg.target };
+            if (msg.type === 'requestPlaceBarricade') engineAction = { type: 'BARRICADE', target: msg.target };
+            if (msg.type === 'requestNoMoves') engineAction = { type: 'GEEN_ZETTEN_ACK' };
+            
+            if (msg.type === 'requestChangeColor') {
+              const requesterSlot = game.slots.find(s => s.connectionId === conn.peer);
+              if (requesterSlot && requesterSlot.id === msg.slotId) {
+                  updateSlot(msg.slotId, requesterSlot.type, requesterSlot.playerName, msg.color);
+              }
+            }
+
+            if (engineAction) processAction(engineAction, conn.peer);
+          }
+        }
+      });
+
+      conn.on('close', () => {
+        connections.delete(conn.peer);
+        removePlayerForConnection(conn.peer);
+      });
+
+      conn.on('error', () => {
+        connections.delete(conn.peer);
+        removePlayerForConnection(conn.peer);
+      });
+    });
+  };
+
+  initPeer();
 
   const updateSettings = (newSettings: Partial<GameSettings>) => {
     game.settings = { ...game.settings, ...newSettings };
@@ -205,77 +300,7 @@ export function startHostSession(args: {
     broadcast();
   };
 
-  peer.on('open', () => {
-    clearTimeout(hostOpenTimeout);
-    args.onStatusUpdated?.('Peer Server Confirmed! Waiting for guests...');
-    broadcast();
-  });
-
-  // Just in case 'open' fires before we attach
-  if (peer.open) {
-    clearTimeout(hostOpenTimeout);
-    args.onStatusUpdated?.('Peer Server Confirmed! Waiting for guests...');
-    broadcast();
-  }
-
-  peer.on('connection', (conn) => {
-    connections.set(conn.peer, conn);
-
-    conn.on('data', (raw) => {
-      const msg = raw as ClientMessage;
-      if (msg?.type === 'joinRequest') {
-        const playerName = msg.playerName.trim();
-        if (!playerName) return;
-
-        const openSlot = game.slots.find(s => s.type === 'open');
-        if (openSlot) {
-          openSlot.type = 'player';
-          openSlot.playerName = playerName;
-          openSlot.connectionId = conn.peer;
-          broadcast();
-        } else {
-          conn.send({ type: 'joinRejected', reason: 'Room is full or no open slots available.' });
-          setTimeout(() => conn.close(), 500);
-        }
-      } else {
-        if (msg.type.startsWith('request')) {
-          if (msg.type === 'requestStartGame') {
-            startGame();
-          }
-
-          // parse request intent manually for security later, map to action
-          let engineAction: any;
-          if (msg.type === 'requestRollDice') engineAction = { type: 'ROLL_START' };
-          if (msg.type === 'requestMovePawn') engineAction = { type: 'MOVE', pawnIdx: msg.pawnIdx, target: msg.target };
-          if (msg.type === 'requestPlaceBarricade') engineAction = { type: 'BARRICADE', target: msg.target };
-          if (msg.type === 'requestNoMoves') engineAction = { type: 'GEEN_ZETTEN_ACK' };
-          
-          if (msg.type === 'requestChangeColor') {
-            const requesterSlot = game.slots.find(s => s.connectionId === conn.peer);
-            if (requesterSlot && requesterSlot.id === msg.slotId) {
-                updateSlot(msg.slotId, requesterSlot.type, requesterSlot.playerName, msg.color);
-            }
-          }
-
-          if (engineAction) processAction(engineAction, conn.peer);
-        }
-      }
-    });
-
-    conn.on('close', () => {
-      connections.delete(conn.peer);
-      removePlayerForConnection(conn.peer);
-    });
-
-    conn.on('error', () => {
-      connections.delete(conn.peer);
-      removePlayerForConnection(conn.peer);
-    });
-  });
-
-  peer.on('error', (err) => {
-    args.onError(err.message || 'Host connection error');
-  });
+  // Error handler was moved into initPeer()
 
   const startGame = () => {
     // Re-initialize board state regardless of current state
@@ -285,7 +310,7 @@ export function startHostSession(args: {
   };
 
   return {
-    peer,
+    get peer() { return peer; },
     game,
     updateSlot,
     updateSettings,
@@ -296,7 +321,7 @@ export function startHostSession(args: {
       for (const conn of connections.values()) {
         conn.close();
       }
-      peer.destroy();
+      peer?.destroy();
     },
   };
 }
@@ -336,8 +361,12 @@ export function startGuestSession(args: {
     connectToHost();
   }
 
+  let guestAttempt = 0;
+  const guestMaxAttempts = 7; // More patient during host refreshes
+
   function connectToHost() {
     if (hostConnection) return; // Already connecting
+    guestAttempt++;
 
     hostConnection = peer.connect(sanitizeRoomId(args.roomId), {
       reliable: true,
@@ -345,6 +374,13 @@ export function startGuestSession(args: {
 
     connectionTimeout = setTimeout(() => {
       if (hostConnection && !hostConnection.open) {
+        if (guestAttempt < guestMaxAttempts) {
+          args.onStatusUpdated?.(`Host busy/unavailable, retrying (${guestAttempt}/${guestMaxAttempts-1})...`);
+          hostConnection.close();
+          hostConnection = null;
+          setTimeout(connectToHost, 2000);
+          return;
+        }
         args.onError('Connection to host timed out. Room code might be wrong or host is offline.');
         peer.destroy();
       }
@@ -387,11 +423,24 @@ export function startGuestSession(args: {
 
     hostConnection.on('close', () => {
       clearTimeout(connectionTimeout);
-      args.onError('Host disconnected or removed you.');
+      if (guestAttempt < guestMaxAttempts) {
+         args.onStatusUpdated?.(`Host disconnected, reconnecting (${guestAttempt}/${guestMaxAttempts-1})...`);
+         hostConnection = null;
+         setTimeout(connectToHost, 2000);
+      } else {
+         args.onError('Host disconnected or removed you.');
+      }
     });
   }
 
   peer.on('error', (err: any) => {
+    if (err.type === 'peer-unavailable' && guestAttempt < guestMaxAttempts) {
+       args.onStatusUpdated?.(`Host not found, retrying (${guestAttempt}/${guestMaxAttempts-1})...`);
+       if (hostConnection) hostConnection.close();
+       hostConnection = null;
+       setTimeout(connectToHost, 2000);
+       return;
+    }
     clearTimeout(peerOpenTimeout);
     clearTimeout(connectionTimeout);
     if (err.type === 'peer-unavailable') {

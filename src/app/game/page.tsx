@@ -93,6 +93,19 @@ function GamePageContent() {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  const isReconnecting = signalingStatus.includes('retrying') || signalingStatus.includes('busy');
+  const reconnectingOverlay = isReconnecting ? (
+    <div className="fixed inset-0 z-[100] bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center p-6 animate-in fade-in duration-500">
+      <div className="bg-slate-900/90 border border-white/10 p-6 rounded-2xl shadow-2xl flex items-center gap-4 max-w-sm w-full border-b-2 border-b-yellow-500/50">
+        <div className="w-10 h-10 border-2 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin flex-shrink-0" />
+        <div className="flex flex-col">
+          <p className="text-yellow-500 font-black uppercase tracking-widest text-[10px]">Connection Unstable</p>
+          <p className="text-white/80 text-sm font-medium leading-tight">{signalingStatus}</p>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 1024;
@@ -111,7 +124,8 @@ function GamePageContent() {
     if (!game) return -1;
     if (!!hostSession) return 0;
     if (typeof window === 'undefined') return -1;
-    const raw = localStorage.getItem('barricadeSession');
+    let raw = localStorage.getItem(`barricade_session_${roomId}`);
+    if (!raw) raw = localStorage.getItem('barricadeSession');
     if (!raw) return -1;
     try {
       const session = JSON.parse(raw);
@@ -152,7 +166,13 @@ function GamePageContent() {
     if (signaledRef.current) return;
     signaledRef.current = true;
 
-    const raw = localStorage.getItem('barricadeSession');
+    // Prioritize room-specific session data to avoid tab cross-pollution
+    let raw = localStorage.getItem(`barricade_session_${roomId}`);
+    if (!raw) {
+        // Fallback to global key only if it matches current room
+        raw = localStorage.getItem('barricadeSession');
+    }
+
     if (!raw) {
       setIsLoading(false);
       setError('Session not found. Return to lobby and host or join again.');
@@ -161,6 +181,7 @@ function GamePageContent() {
 
     const session = JSON.parse(raw) as SessionInfo;
     if (session.roomId !== roomId) {
+      // If global key exists but doesn't match, we still can't use it
       setIsLoading(false);
       setError('Room ID mismatch. Return to lobby and try again.');
       return;
@@ -181,12 +202,18 @@ function GamePageContent() {
       setError(message);
       setIsLoading(false);
       
-      // If critical error, redirect home after a short delay
-      if (message.includes('not found') || message.includes('session') || message.includes('ID') || message.includes('already taken')) {
+      // Detailed error logging or specific handling for PeerJS codes
+      console.error('PeerJS Error Callback:', message);
+
+      // If critical error, redirect home after a longer delay to allow manual retry or reading error
+      const isCritical = message.includes('not found') || message.includes('session') || message.includes('ID') || message.includes('already taken');
+      
+      if (isCritical) {
          if (message.includes('taken') || message.includes('ID')) {
-             setError("A game with this code is already active. Please try a different code or return to the main menu.");
+             setError("Host ID conflict: A previous session might still be active. Retrying... (If this persists, try another room code)");
          }
-         setTimeout(() => router.push('/'), 5000);
+         // Longer delay (10s) gives user time to see the error or refresh manually
+         setTimeout(() => router.push('/'), 10000);
       }
     };
 
@@ -376,15 +403,38 @@ function GamePageContent() {
     );
   }
 
-  if (error) {
+  // Only show the fatal error screen if we haven't even loaded the game yet
+  // If the game is already in progress, we'll show a non-blocking overlay instead
+  if (error && !game) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-background gap-4">
-        <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg max-w-md text-center">
-          <p className="font-bold text-lg mb-2">Error</p>
-          <p>{error}</p>
+      <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-slate-950/90 backdrop-blur-xl z-[999] gap-4 fixed inset-0">
+        <div className="p-10 bg-red-500/10 border border-red-500/20 text-red-100 rounded-[2.5rem] max-w-md w-full text-center shadow-2xl backdrop-blur-md border border-white/5 relative overflow-hidden group">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500/50 to-transparent shadow-[0_0_15px_rgba(239,68,68,0.5)]"></div>
+          
+          <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8 rotate-6 float-animation group-hover:rotate-0 transition-all duration-700">
+            <Info className="text-red-500 w-10 h-10" />
+          </div>
+          
+          <h2 className="text-4xl font-black mb-3 tracking-tighter uppercase italic leading-none">Connection Lost</h2>
+          <p className="text-red-100/50 mb-10 text-sm leading-relaxed font-medium uppercase tracking-[0.1em]">{error}</p>
+          
+          <div className="flex flex-col gap-4">
+             <button 
+                onClick={() => window.location.reload()}
+                className="w-full py-5 bg-red-500 hover:bg-red-600 text-white rounded-[1.25rem] font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-[0_10px_30px_rgba(239,68,68,0.4)] active:scale-95 flex items-center justify-center gap-3 group/btn"
+             >
+                <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1.5 transition-transform" />
+                Try Reconnecting
+             </button>
+             <button 
+                onClick={() => router.push('/')}
+                className="w-full py-5 bg-white/5 hover:bg-white/10 text-white/40 rounded-[1.25rem] font-black uppercase tracking-[0.2em] text-[10px] transition-all hover:text-white border border-white/5"
+             >
+                Return to Menu
+             </button>
+          </div>
         </div>
-        <p className="text-muted-foreground animate-pulse">Redirecting to menu...</p>
-        <button onClick={() => router.push('/')} className="px-4 py-2 bg-slate-800 text-white rounded hover:bg-slate-700 transition-colors">Return Now</button>
+        <p className="text-white/10 text-[9px] uppercase tracking-[0.4em] font-black mt-8 animate-pulse">Auto-redirecting in 10s</p>
       </div>
     );
   }
@@ -499,7 +549,8 @@ function GamePageContent() {
      );
 
      return (
-       <div className="true-fullscreen overflow-hidden bg-slate-950">
+       <div className="true-fullscreen overflow-hidden bg-slate-950 relative">
+          {reconnectingOverlay}
           <div className="forced-landscape w-full h-full flex overflow-hidden">
              <div 
                className="flex-grow relative overflow-hidden flex items-center justify-center cursor-pointer"
@@ -541,7 +592,8 @@ function GamePageContent() {
   }
 
     return (
-      <div className="true-fullscreen overflow-hidden bg-slate-950">
+      <div className="true-fullscreen overflow-hidden bg-slate-950 relative">
+        {reconnectingOverlay}
         <div className="forced-landscape w-full h-full flex flex-col items-center justify-center p-4 overflow-y-auto">
           <div className="absolute top-4 right-4 z-20">
             <button 

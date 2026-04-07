@@ -102,6 +102,7 @@ function HomeContent() {
                 roomId: 'MATCHMAKING'
               };
               localStorage.setItem('barricadeSession', JSON.stringify(sessionData));
+              localStorage.setItem('barricade_session_MATCHMAKING', JSON.stringify(sessionData));
               router.push('/game?roomId=MATCHMAKING');
             }}
           >
