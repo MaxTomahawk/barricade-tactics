@@ -132,7 +132,10 @@ function GamePageContent() {
     }
 
     const onGameStateUpdated = (nextGame: GameState) => {
-      if (nextGame.id.toUpperCase() === roomId) {
+      // If we are in matchmaking, we might have started with BTU_MATCH_... 
+      // but the actual room we joined is BT_MATCH_1. We should accept it.
+      const isMatchmaking = session.role === 'matchmaking';
+      if (nextGame.id.toUpperCase() === roomId || isMatchmaking) {
         setGame(nextGame);
         setError('');
         setIsLoading(false);

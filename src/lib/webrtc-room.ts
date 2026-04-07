@@ -228,6 +228,10 @@ export function startHostSession(args: {
         }
       } else {
         if (msg.type.startsWith('request')) {
+          if (msg.type === 'requestStartGame') {
+            startGame();
+          }
+
           // parse request intent manually for security later, map to action
           let engineAction: any;
           if (msg.type === 'requestRollDice') engineAction = { type: 'ROLL_START' };
@@ -263,7 +267,7 @@ export function startHostSession(args: {
   });
 
   const startGame = () => {
-    if (game.boardState) return; // Already started
+    // Re-initialize board state regardless of current state
     const seed = initializeBoardState(game.slots, game.settings);
     game.boardState = seed;
     broadcast();

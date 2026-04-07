@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Trophy, HelpCircle, Dice5, Maximize, Minimize, ChevronRight, ChevronLeft, Info } from 'lucide-react';
+import { Trophy, HelpCircle, Dice5, Maximize, Minimize, ChevronRight, ChevronLeft, Info, Home, RotateCcw } from 'lucide-react';
 import { BoardState } from '@/lib/types';
 import { StaticDice, DiceDots, RollingDice } from './dice';
 import { useFullscreen } from '@/hooks/use-fullscreen';
@@ -57,7 +57,11 @@ export function Sidebar({
             {statusLabels[state.status] || state.status}
           </div>
           <div className="scale-75 flex items-center justify-center -my-2">
-             {diceContent}
+             {state.status === 'GAME_OVER' ? (
+               <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white/20">
+                 <Trophy size={20} className="text-white" />
+               </div>
+             ) : diceContent}
           </div>
         </div>
 
@@ -92,6 +96,25 @@ export function Sidebar({
             );
           })}
         </div>
+
+        {state.status === 'GAME_OVER' && (
+          <div className="flex flex-col gap-2 w-full px-2 mb-2">
+            <button 
+              onClick={() => onAction({ type: 'requestStartGame' })}
+              className="w-full aspect-square bg-green-500 hover:bg-green-600 rounded-xl flex items-center justify-center text-white shadow-lg transition-all active:scale-95"
+              title="Play Again"
+            >
+              <RotateCcw size={20} />
+            </button>
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="w-full aspect-square bg-slate-800 hover:bg-slate-700 rounded-xl flex items-center justify-center text-white/70 hover:text-white shadow-lg transition-all active:scale-95 border border-white/5"
+              title="Main Menu"
+            >
+              <Home size={20} />
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center justify-around w-full mt-auto pt-2 border-t border-white/5 px-1">
           {isMobile && (
@@ -181,6 +204,40 @@ export function Sidebar({
            })}
         </div>
       </div>
+
+      {/* Game Over Actions */}
+      {state.status === 'GAME_OVER' && (
+        <div className="sidebar-game-over-card bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-5 flex flex-col gap-4 animate-in fade-in zoom-in duration-300">
+           <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg">
+                 <Trophy size={20} className="text-white" />
+              </div>
+              <div>
+                 <div className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest">Victory!</div>
+                 <div className="text-sm font-bold text-white truncate max-w-[120px]">
+                    {slots.find(s => s.id === state.winnaar)?.playerName || `Player ${state.winnaar! + 1}`}
+                 </div>
+              </div>
+           </div>
+           
+           <div className="grid grid-cols-2 gap-2">
+              <button 
+                onClick={() => onAction({ type: 'requestStartGame' })}
+                className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-xl shadow-lg transition-all active:scale-95 text-xs"
+              >
+                <RotateCcw size={14} />
+                Play Again
+              </button>
+              <button 
+                onClick={() => window.location.href = '/'}
+                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white/80 hover:text-white font-bold py-2 rounded-xl border border-white/10 transition-all active:scale-95 text-xs"
+              >
+                <Home size={14} />
+                Lobby
+              </button>
+           </div>
+        </div>
+      )}
 
       <div className="pt-2 border-t border-white/5">
         <div className="flex items-center justify-around w-full px-2">
