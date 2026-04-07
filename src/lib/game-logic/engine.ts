@@ -22,7 +22,7 @@ export function initializeBoardState(slots: { id: number, type: string }[], sett
     for (let i = 0; i < activeSlots.length; i++) {
         const slot = activeSlots[i] as any; // Cast as any to access the new color property
         const c = startCols[i];
-        const startOffsets = [[1, -1], [1, 1], [2, -1], [2, 1]];
+        const startOffsets = [[1, -0.5], [1, 0.5], [2, -0.5], [2, 0.5]];
         for (let j = 0; j < 4; j++) {
             const [r_offset, c_offset] = startOffsets[j];
             pawns.push({

@@ -115,7 +115,7 @@ export function startHostSession(args: {
       args.onError('Failed to start as Host. PeerJS servers might be rate-limiting you.');
       peer.destroy();
     }
-  }, 10000);
+  }, 6000);
 
   const updateSettings = (newSettings: Partial<GameSettings>) => {
     game.settings = { ...game.settings, ...newSettings };
@@ -299,7 +299,7 @@ export function startGuestSession(args: {
       args.onError('Failed to connect to the Peer mapping server.');
       peer.destroy();
     }
-  }, 10000);
+  }, 6000);
 
   let connectionTimeout: ReturnType<typeof setTimeout>;
   let stateTimeout: ReturnType<typeof setTimeout>;

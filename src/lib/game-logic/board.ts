@@ -127,7 +127,7 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
             knoppen[entry_key] = { r: start_row, c: startC, buren: [], is_finish: false, is_start: false, speler_start: -1 };
         }
         
-        for (const [ro, co] of [[1, -1], [1, 1], [2, -1], [2, 1]]) {
+        for (const [ro, co] of [[1, -0.5], [1, 0.5], [2, -0.5], [2, 0.5]]) {
             const pr = start_row + ro;
             const pc = startC + co;
             const key = `${pr},${pc}`;
@@ -152,7 +152,7 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
             const buurKey = `${buurPos.r},${buurPos.c}`;
             const buurNode = knoppen[buurKey];
             if (buurNode && !buurNode.is_start && !(buurNode as any).is_t_junction_break) {
-                if (!knoop.buren.find((b: BoardNode) => b.r === buurPos.r && b.c === buurPos.c)) {
+                if (!knoop.buren.find((b: Position) => b.r === buurPos.r && b.c === buurPos.c)) {
                     knoop.buren.push({ r: buurPos.r, c: buurPos.c });
                 }
             }
@@ -164,7 +164,7 @@ export function generateBoard(activeSlotIds: number[] = [0, 1, 2, 3]): { board: 
             const buurKey = `${buurPos.r},${buurPos.c}`;
             const buurNode = knoppen[buurKey];
             if (buurNode && !buurNode.is_start) {
-                if (!knoop.buren.find((b: BoardNode) => b.r === buurPos.r && b.c === buurPos.c)) {
+                if (!knoop.buren.find((b: Position) => b.r === buurPos.r && b.c === buurPos.c)) {
                     knoop.buren.push({ r: buurPos.r, c: buurPos.c });
                 }
             }
