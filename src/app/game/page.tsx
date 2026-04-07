@@ -289,6 +289,7 @@ function GamePageContent() {
       active = false;
       shutdownRef.current?.();
       shutdownRef.current = null;
+      signaledRef.current = false;
     };
   }, [roomId, router]);
 
@@ -554,13 +555,20 @@ function GamePageContent() {
           <div className="lobby-card flex flex-col items-center w-full max-w-xl px-2 py-1">
             <h1 className="lobby-title text-xl md:text-3xl font-bold mb-0.5">Room Setup: {game.gameName}</h1>
             <h2 className="text-xs md:text-lg font-semibold mb-1 text-slate-400">Code: <span className="text-white font-mono">{game.id}</span></h2>
-        <button
-          type="button"
-          onClick={copyInvite}
-          className="mb-2 rounded-md bg-primary px-3 py-1 text-xs text-primary-foreground hover:opacity-90 transition-opacity"
-        >
-          Copy Invite Link
-        </button>
+            <button
+              type="button"
+              onClick={copyInvite}
+              className="mb-2 rounded-md bg-primary/20 border border-primary/30 px-3 py-1 text-xs text-primary-foreground hover:bg-primary/30 transition-all font-medium"
+            >
+              Copy Invite Link
+            </button>
+
+            <div className="fixed bottom-4 right-4 flex items-center gap-2 bg-slate-900/40 border border-white/5 px-3 py-1.5 rounded-full backdrop-blur-md shadow-2xl z-50">
+              <div className={`w-1.5 h-1.5 rounded-full ${signalingStatus.includes('Confirmed') || signalingStatus.includes('Handshaking') || signalingStatus.includes('Connected') || signalingStatus.includes('Waiting') ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-yellow-500 animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.4)]'}`} />
+              <span className={`text-[9px] uppercase tracking-widest font-black ${signalingStatus.includes('Confirmed') || signalingStatus.includes('Handshaking') || signalingStatus.includes('Connected') || signalingStatus.includes('Waiting') ? 'text-green-500/80' : 'text-yellow-500/80'}`}>
+                {signalingStatus.includes('Confirmed') || signalingStatus.includes('Handshaking') || signalingStatus.includes('Connected') || signalingStatus.includes('Waiting') ? 'Connected' : 'Connecting'}
+              </span>
+            </div>
 
         {isHostUser && (
           <div className="mb-2 w-full max-w-md mx-auto grid grid-cols-2 gap-2 bg-black/20 p-2 rounded-lg border border-white/5">

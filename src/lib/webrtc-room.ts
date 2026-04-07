@@ -111,6 +111,10 @@ export function startHostSession(args: {
   const peer = new Peer(game.id);
   const connections = new Map<string, DataConnection>();
 
+  // Immediately notify the UI of the game state so the host doesn't have to wait for PeerJS server
+  // to just see their own lobby.
+  args.onGameStateUpdated(game);
+
   let hostOpenTimeout = setTimeout(() => {
     if (!peer.open && !peer.disconnected) {
       args.onError('Failed to start as Host. PeerJS servers might be rate-limiting you.');
@@ -206,6 +210,13 @@ export function startHostSession(args: {
     args.onStatusUpdated?.('Peer Server Confirmed! Waiting for guests...');
     broadcast();
   });
+
+  // Just in case 'open' fires before we attach
+  if (peer.open) {
+    clearTimeout(hostOpenTimeout);
+    args.onStatusUpdated?.('Peer Server Confirmed! Waiting for guests...');
+    broadcast();
+  }
 
   peer.on('connection', (conn) => {
     connections.set(conn.peer, conn);
@@ -315,6 +326,19 @@ export function startGuestSession(args: {
     args.onStatusUpdated?.('Handshaking with Host...');
     
     // Now that guest peer is open, we can safely connect to host
+    connectToHost();
+  });
+
+  // Just in case 'open' fires before we attach? Unlikely for network but safe.
+  if (peer.open) {
+    clearTimeout(peerOpenTimeout);
+    args.onStatusUpdated?.('Handshaking with Host...');
+    connectToHost();
+  }
+
+  function connectToHost() {
+    if (hostConnection) return; // Already connecting
+
     hostConnection = peer.connect(sanitizeRoomId(args.roomId), {
       reliable: true,
     });
@@ -348,6 +372,7 @@ export function startGuestSession(args: {
       const msg = raw as ClientMessage;
       if (msg?.type === 'gameStateUpdated') {
         clearTimeout(stateTimeout); 
+        args.onStatusUpdated?.('Connected to Host');
         args.onGameStateUpdated(msg.game);
       } else if (msg?.type === 'joinRejected') {
         args.onError(msg.reason || 'Failed to join room.');
@@ -364,7 +389,7 @@ export function startGuestSession(args: {
       clearTimeout(connectionTimeout);
       args.onError('Host disconnected or removed you.');
     });
-  });
+  }
 
   peer.on('error', (err: any) => {
     clearTimeout(peerOpenTimeout);
