@@ -5,9 +5,8 @@
 - Dynamic Game Board & Responsive UI: Render the game board with all pawns, barricades, and finish nodes. Provide clear visual feedback for selected pieces, valid moves, and highlight dice rolls. Ensure the UI is fully responsive and optimized for both desktop (mouse) and mobile (touch) input.
 - Core Game Logic Engine: Implement all Barricade game rules, including dice rolling, exact pawn movement along paths, barricade placement and removal upon landing, capturing opponent pawns, and determining win conditions (reaching finish node with an exact roll).
 - Multiplayer Lobby & Host Settings: Enable users to create (host) new game rooms or join existing ones via a room code. Hosts can configure game settings: total players (2-4), number of bots, dice roll animation preference, capture bonus toggle, and win condition (number of pawns to finish).
-- Real-time Game State Synchronization: Leverage Firestore for seamless, real-time synchronization of the entire game state, including player turns, pawn and barricade positions, dice rolls, and lobby updates, across all connected clients.
-- Heuristic AI Opponent: Integrate non-player character (bot) behavior, using move-scoring heuristics based on the Pygame reference to make strategic decisions such as advancing own pawns and blocking opponents.
-- AI Game Strategy Advisor: A generative AI tool that analyzes past game turns or current board state to offer personalized strategic tips and insights, helping players improve their gameplay.
+- Real-time Game State Synchronization: Leverage WebRTC (via PeerJS) for seamless, real-time synchronization of the entire game state, including player turns, pawn and barricade positions, dice rolls, and lobby updates, across all connected clients.
+- Heuristic Computer Opponent: Integrate non-player character (bot) behavior, using move-scoring heuristics based on the Pygame reference to make strategic decisions such as advancing own pawns and blocking opponents.
 
 ## Style Guidelines:
 

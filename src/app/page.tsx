@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { Bot, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -132,11 +132,6 @@ function HomeContent() {
           )}
         </CardContent>
       </Card>
-      
-      <p className="text-sm text-muted-foreground mt-8 flex items-center gap-2">
-        <Bot size={16} /> AI opponents and strategy advisor powered by Google AI.
-      </p>
-
       <HostGameDialog
         isOpen={isHostDialogOpen}
         setIsOpen={setIsHostDialogOpen}
