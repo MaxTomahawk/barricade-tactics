@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { HelpCircle, Trophy, ChevronRight, Info, Dice5, Maximize, Minimize } from 'lucide-react';
 import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useDynamicFavicon } from '@/hooks/use-dynamic-favicon';
 
 const GAME_COLORS = [
   '#ef4444', // Red
@@ -93,6 +94,7 @@ function GamePageContent() {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+
   const isReconnecting = signalingStatus.includes('retrying') || signalingStatus.includes('busy');
   const reconnectingOverlay = isReconnecting ? (
     <div className="fixed inset-0 z-[100] bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center p-6 animate-in fade-in duration-500">
@@ -132,7 +134,28 @@ function GamePageContent() {
       const mySlot = game.slots.find(s => s.playerName === session.playerName);
       return mySlot ? mySlot.id : -1;
     } catch(e) { return -1; }
-  }, [game, hostSession]);
+  }, [game, hostSession, roomId]);
+
+  // Dynamic Favicon handling: Show viewer's color, or default to slot 0/red
+  const activePlayerColorRaw = (localPlayerIndex !== -1 && game?.slots[localPlayerIndex]?.color)
+    ? game.slots[localPlayerIndex].color
+    : (game?.slots[0]?.color || '#ef4444');
+
+  const TAILWIND_COLOR_MAP: Record<string, string> = {
+    'bg-red-500': '#ef4444',
+    'bg-green-500': '#22c55e',
+    'bg-blue-500': '#3b82f6',
+    'bg-yellow-500': '#eab308',
+    'bg-purple-500': '#a855f7',
+    'bg-orange-500': '#f97316',
+    'bg-cyan-500': '#06b6d4',
+    'bg-pink-500': '#ec4899',
+    'bg-lime-500': '#84cc16',
+    'bg-indigo-500': '#6366f1',
+  };
+
+  const activePlayerColor = TAILWIND_COLOR_MAP[activePlayerColorRaw] || activePlayerColorRaw;
+  useDynamicFavicon(activePlayerColor);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
