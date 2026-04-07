@@ -98,12 +98,31 @@ function GamePageContent() {
 
   const isReconnecting = signalingStatus.includes('retrying') || signalingStatus.includes('busy');
   const reconnectingOverlay = isReconnecting ? (
-    <div className="fixed inset-0 z-[100] bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center p-6 animate-in fade-in duration-500">
-      <div className="bg-slate-900/90 border border-white/10 p-6 rounded-2xl shadow-2xl flex items-center gap-4 max-w-sm w-full border-b-2 border-b-yellow-500/50">
-        <div className="w-10 h-10 border-2 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin flex-shrink-0" />
-        <div className="flex flex-col">
-          <p className="text-yellow-500 font-black uppercase tracking-widest text-[10px]">Connection Unstable</p>
-          <p className="text-white/80 text-sm font-medium leading-tight">{signalingStatus}</p>
+    <div className="fixed inset-0 z-[100] bg-slate-950/40 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
+      <div className="bg-slate-900/90 border border-white/10 p-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center gap-6 max-w-sm w-full border-b-2 border-b-yellow-500/50 backdrop-blur-xl relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500/50 to-transparent shadow-[0_0_15px_rgba(234,179,8,0.5)]"></div>
+        <div className="w-20 h-20 bg-yellow-500/20 rounded-3xl flex items-center justify-center animate-pulse">
+           <div className="w-12 h-12 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin" />
+        </div>
+        <div className="flex flex-col items-center text-center">
+          <p className="text-yellow-500 font-black uppercase tracking-[0.2em] text-[12px] mb-2">Connection Unstable</p>
+          <p className="text-white/80 text-sm font-medium leading-tight mb-6">{signalingStatus}</p>
+          
+          <div className="flex flex-col gap-3 w-full">
+             <button 
+                onClick={() => window.location.reload()}
+                className="w-full py-4 bg-yellow-600 hover:bg-yellow-700 text-white rounded-2xl font-black uppercase tracking-[0.15em] text-[10px] transition-all shadow-[0_10px_30px_rgba(234,179,8,0.3)] active:scale-95 flex items-center justify-center gap-2"
+             >
+                <ChevronRight className="w-3 h-3" />
+                Refresh Page
+             </button>
+             <button 
+                onClick={() => router.push('/')}
+                className="w-full py-4 bg-white/5 hover:bg-white/10 text-white/50 rounded-2xl font-black uppercase tracking-[0.15em] text-[10px] transition-all border border-white/5"
+             >
+                Return to Menu
+             </button>
+          </div>
         </div>
       </div>
     </div>
@@ -407,19 +426,30 @@ function GamePageContent() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-8 bg-background">
-        <div className="animate-pulse space-y-6 text-center">
-          <div className="h-10 w-10 mx-auto border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xl font-medium text-foreground">{signalingStatus}</p>
-          <div className="pt-8 space-y-4">
-            <p className="text-sm text-slate-500 max-w-xs mx-auto">
-              If this takes longer than 6 seconds, try refreshing the page.
-            </p>
+      <div className="flex min-h-screen flex-col items-center justify-center p-8 bg-slate-950">
+        <div className="animate-pulse flex flex-col items-center justify-center text-center max-w-md w-full">
+          <div className="w-24 h-24 bg-primary/10 rounded-[2rem] flex items-center justify-center mb-8 rotate-3 shadow-2xl border border-primary/20">
+             <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          </div>
+          
+          <h2 className="text-3xl font-black mb-2 tracking-tighter uppercase italic text-white">{signalingStatus}</h2>
+          <p className="text-white/40 text-sm font-medium leading-relaxed mb-10 max-w-xs mx-auto">
+             If this takes longer than 6 seconds, try refreshing the page manually.
+          </p>
+
+          <div className="flex flex-col gap-4 w-full px-8">
             <button 
               onClick={() => window.location.reload()}
-              className="px-6 py-2 bg-slate-800 text-white rounded-full text-sm font-bold hover:bg-slate-700 transition-colors shadow-lg active:scale-95"
+              className="w-full py-5 bg-primary hover:bg-primary/90 text-white rounded-[1.25rem] font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-[0_10px_30px_rgba(59,130,246,0.3)] active:scale-95 flex items-center justify-center gap-3 group"
             >
-              Refresh Page
+               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+               Refresh Page
+            </button>
+            <button 
+              onClick={() => router.push('/')}
+              className="w-full py-5 bg-white/5 hover:bg-white/10 text-white/40 rounded-[1.25rem] font-black uppercase tracking-[0.2em] text-[10px] transition-all hover:text-white border border-white/5 flex items-center justify-center"
+            >
+               Return to Menu
             </button>
           </div>
         </div>
@@ -832,7 +862,7 @@ function GamePageContent() {
                       value={slot.type}
                       onValueChange={(val) => {
                         let nextName = undefined;
-                        if (val === 'bot') nextName = `bot ${slot.id} 🤖`;
+                        if (val === 'bot') nextName = `Bot ${slot.id}`;
                         hostSession?.updateSlot(slot.id, val as SlotType, nextName);
                       }}
                     >
