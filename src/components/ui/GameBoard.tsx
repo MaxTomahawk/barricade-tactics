@@ -4,6 +4,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { BoardState, Position, PlayerColor, Pawn, GameStatus } from '@/lib/types';
 import { vindZetten, posToStr } from '@/lib/game-logic/engine';
 import { DiceDots, RollingDice } from './dice';
+import { BotIcon } from './bot-icon';
 
 interface GameBoardProps {
   state: BoardState;
@@ -333,8 +334,13 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
         
         {state.status === "GAME_OVER" && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center rounded-xl animate-in fade-in zoom-in z-50">
-                <h2 className="text-4xl font-black uppercase tracking-widest bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent drop-shadow-2xl mb-8">
-                    Player {state.winnaar! + 1} Wins!
+                <h2 
+                    className="text-4xl font-black uppercase tracking-widest bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent drop-shadow-2xl mb-8 flex items-center gap-4"
+                >
+                    {slots?.find(s => s.id === state.winnaar)?.playerName || `Player ${state.winnaar! + 1}`} Wins!
+                    {slots?.find(s => s.id === state.winnaar)?.type === 'bot' && (
+                        <BotIcon color={slots.find(s => s.id === state.winnaar)?.color || '#fff'} className="text-[1.5em]" />
+                    )}
                 </h2>
             </div>
         )}

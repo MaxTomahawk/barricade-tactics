@@ -66,6 +66,7 @@ function ColorPicker({
 import { Sidebar } from '@/components/ui/sidebar';
 import { GameBoard } from '@/components/ui/GameBoard';
 import { DiceDots, RollingDice, StaticDice } from '@/components/ui/dice';
+import { BotIcon } from '@/components/ui/bot-icon';
 import { initializeBoardState, calculateBotAction } from '@/lib/game-logic/engine';
 
 type SessionInfo = {
@@ -854,7 +855,7 @@ function GamePageContent() {
               } else {
                 let display: string = slot.type;
                 if (slot.type === 'player' || slot.type === 'host' || slot.type === 'bot') {
-                  display = slot.playerName || (slot.type === 'bot' ? `bot ${slot.id} 🤖` : display);
+                  display = slot.playerName || (slot.type === 'bot' ? `Bot ${slot.id}` : display);
                 } else if (slot.type === 'open') display = 'Waiting...';
                 else if (slot.type === 'closed') display = 'Closed';
 
@@ -866,7 +867,11 @@ function GamePageContent() {
                         disabled={!canChangeColor || slot.type === 'closed' || slot.type === 'open'} 
                         used={game.slots.filter(s => s.type !== 'open' && s.type !== 'closed').map(s => s.color)}
                       />
-                     <div className={`text-xs ${slot.type === 'open' || slot.type === 'closed' ? 'text-muted-foreground italic' : 'font-bold'}`}>{display}</div>
+                     <div className={`text-xs ${slot.type === 'open' || slot.type === 'closed' ? 'text-muted-foreground italic' : 'font-bold'} flex items-center gap-1.5`}>
+                        {display}
+                        {slot.type === 'bot' && <BotIcon color={slot.color} className="text-[1.2em]" />}
+                     </div>
+
                   </div>
                 );
               }

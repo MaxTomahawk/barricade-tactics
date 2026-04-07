@@ -6,6 +6,7 @@ import { BoardState } from '@/lib/types';
 import { StaticDice, DiceDots, RollingDice } from './dice';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { BotIcon } from './bot-icon';
 
 interface SidebarProps {
   state: BoardState;
@@ -189,8 +190,9 @@ export function Sidebar({
                       ) : (
                         <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: slot.color }} />
                       )}
-                      <span className={`text-[10px] md:text-sm font-medium truncate ${isTurn ? 'text-white' : 'text-slate-400'}`}>
+                      <span className={`text-[10px] md:text-sm font-medium truncate ${isTurn ? 'text-white' : 'text-slate-400'} flex items-center gap-1.5`}>
                         {slot.playerName || `Player ${slot.id + 1}`}
+                        {slot.type === 'bot' && <BotIcon color={slot.color} />}
                       </span>
                    </div>
                    <div className="flex items-center gap-1 shrink-0">
@@ -214,8 +216,9 @@ export function Sidebar({
               </div>
               <div>
                  <div className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest">Victory!</div>
-                 <div className="text-sm font-bold text-white truncate max-w-[120px]">
+                 <div className="text-sm font-bold text-white truncate max-w-[120px] flex items-center gap-1.5">
                     {slots.find(s => s.id === state.winnaar)?.playerName || `Player ${state.winnaar! + 1}`}
+                    {slots.find(s => s.id === state.winnaar)?.type === 'bot' && <BotIcon color={slots.find(s => s.id === state.winnaar)?.color || '#fff'} />}
                  </div>
               </div>
            </div>
