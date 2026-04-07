@@ -104,3 +104,83 @@ body {
 .dice-rolling {
   animation: dice-roll 1s ease-in-out;
 }
+
+/* Viewport and Orientation Fixes */
+.true-fullscreen {
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+  position: relative; /* Changed from fixed to allow relative parent centering */
+}
+
+@media (orientation: portrait) {
+  .forced-landscape {
+    width: 100dvh;
+    height: 100vw;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(90deg);
+    transform-origin: center center;
+    overflow: hidden;
+  }
+
+  /* Force Radix Portals to rotate 90deg to match the scene */
+  div[data-radix-portal] {
+    position: fixed;
+    width: 100dvh;
+    height: 100vw;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(90deg);
+    transform-origin: center center;
+    pointer-events: none;
+    z-index: 9999;
+  }
+  
+  div[data-radix-portal] > * {
+    pointer-events: auto;
+  }
+}
+
+/* Mobile Landscape scaling tweaks */
+@media (max-height: 500px), (max-width: 900px) and (orientation: landscape) {
+  .sidebar-container {
+    padding: 0.4rem !important;
+    gap: 0.4rem !important;
+  }
+  
+  .sidebar-status-card {
+    padding: 0.3rem !important;
+    gap: 0.1rem !important;
+  }
+
+  .sidebar-status-card span {
+    font-size: 0.6rem !important;
+  }
+
+  .sidebar-status-card .text-xl,
+  .sidebar-status-card .text-sm {
+    font-size: 0.75rem !important;
+  }
+
+  .lobby-card {
+    gap: 0.2rem !important;
+    max-width: 100% !important;
+  }
+
+  .lobby-title {
+    font-size: 1rem !important;
+    margin-bottom: 0 !important;
+  }
+}
+
+@media (max-height: 400px) {
+  .lobby-card {
+    scale: 0.9;
+    transform-origin: top center;
+  }
+  .sidebar-container {
+    padding: 0.25rem !important;
+  }
+}
