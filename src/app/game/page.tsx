@@ -64,7 +64,7 @@ function ColorPicker({
 
 import { Sidebar } from '@/components/ui/sidebar';
 import { GameBoard } from '@/components/ui/GameBoard';
-import { DiceDots, RollingDice } from '@/components/ui/dice';
+import { DiceDots, RollingDice, StaticDice } from '@/components/ui/dice';
 import { initializeBoardState, calculateBotAction } from '@/lib/game-logic/engine';
 
 type SessionInfo = {
@@ -369,88 +369,101 @@ function GamePageContent() {
      const currentColor = game.slots[bs.beurt]?.color || '#ffffff';
 
      const diceContent = (
-       <div className="flex flex-col items-center">
-         {bs.status === "PLAATS_BARRICADE" ? (
-           <div className="w-16 h-16 bg-slate-800/80 border-4 border-amber-700 rounded-2xl flex items-center justify-center shadow-xl">
-             <svg viewBox="0 0 24 24" className="w-8 h-8">
-               <rect x="4" y="4" width="16" height="16" rx="3" fill="#854d0e" stroke="#451a03" strokeWidth="1.5" />
-               <text x="12" y="16" fill="white" fontSize="9" fontWeight="bold" textAnchor="middle">B</text>
-             </svg>
-           </div>
-         ) : bs.status === "WACHT_OP_DOBBELSTEEN" && localPlayerIndex === bs.beurt ? (
-           <button 
-             onClick={() => {
-                if (isHostUser) hostSession?.processAction({ type: 'ROLL_START' });
-                else guestSession?.sendToHost({ type: 'requestRollDice' });
-             }} 
-             className="w-16 h-16 bg-slate-800 border-4 rounded-2xl shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer" 
-             style={{ borderColor: currentColor }}
-           >
-             <svg viewBox="-0.4 -0.4 0.8 0.8" className="w-10 h-10">
-               <DiceDots value={6} color={currentColor} size={0.8} />
-             </svg>
-           </button>
-         ) : (
-           <div className="w-16 h-16 bg-slate-800/80 border-4 rounded-2xl flex items-center justify-center shadow-inner relative overflow-hidden" style={{ borderColor: currentColor }}>
-             {bs.status === 'DOBBELEN' ? (
-               <RollingDice color={currentColor} diceMode={game.settings.diceMode} size={10} />
-             ) : bs.dobbelsteen > 0 ? (
-               <svg viewBox="-0.4 -0.4 0.8 0.8" className="w-10 h-10">
-                 <DiceDots value={bs.dobbelsteen} color={currentColor} size={0.8} />
-               </svg>
-             ) : <Dice5 className="w-8 h-8 text-slate-700" />}
-           </div>
-         )}
-         
-         {bs.status === "GEEN_ZETTEN" && localPlayerIndex === bs.beurt && (
-           <button 
-             onClick={() => {
-                if (isHostUser) hostSession?.processAction({ type: 'GEEN_ZETTEN_ACK' });
-                else guestSession?.sendToHost({ type: 'requestNoMoves' });
-             }} 
-             className="mt-4 px-4 py-2 bg-red-600 text-white rounded-full text-xs font-bold animate-bounce shadow-xl"
-           >
-             No Moves (Finish)
-           </button>
-         )}
-       </div>
+        <div className="flex flex-col items-center">
+          {bs.status === "PLAATS_BARRICADE" ? (
+            <div className="w-20 h-20 bg-amber-800 border-4 border-amber-600 rounded-3xl flex items-center justify-center shadow-2xl scale-110">
+               <span className="text-2xl font-black text-white">B</span>
+            </div>
+          ) : bs.status === "WACHT_OP_DOBBELSTEEN" && localPlayerIndex === bs.beurt ? (
+            <button 
+              onClick={() => {
+                 if (isHostUser) hostSession?.processAction({ type: 'ROLL_START' });
+                 else guestSession?.sendToHost({ type: 'requestRollDice' });
+              }} 
+              className="hover:scale-110 active:scale-95 transition-all cursor-pointer" 
+            >
+              <StaticDice color={currentColor} size={20} value={0} showQuestion={true} />
+            </button>
+          ) : (
+            <div className="relative">
+              {bs.status === 'DOBBELEN' ? (
+                <RollingDice color={currentColor} diceMode={game.settings.diceMode} size={20} />
+              ) : bs.dobbelsteen > 0 ? (
+                <StaticDice value={bs.dobbelsteen} color={currentColor} size={20} />
+              ) : (
+                <div className="w-20 h-20 bg-slate-800/40 border-4 border-white/5 rounded-3xl flex items-center justify-center opacity-20">
+                  <Dice5 className="w-10 h-10 text-white" />
+                </div>
+              )}
+            </div>
+          )}
+          
+          {bs.status === "GEEN_ZETTEN" && localPlayerIndex === bs.beurt && (
+            <button 
+              onClick={() => {
+                 if (isHostUser) hostSession?.processAction({ type: 'GEEN_ZETTEN_ACK' });
+                 else guestSession?.sendToHost({ type: 'requestNoMoves' });
+              }} 
+              className="mt-6 px-6 py-2.5 bg-red-600 text-white rounded-full text-sm font-bold animate-bounce shadow-2xl"
+            >
+              No Moves (Finish)
+            </button>
+          )}
+        </div>
      );
 
      const rulesMenu = (
-        <Dialog>
-           <DialogTrigger asChild>
-              <button className="flex items-center justify-center w-full gap-2 px-4 py-2.5 bg-slate-900/80 backdrop-blur-md rounded-xl border border-white/10 text-white/70 hover:text-white hover:border-white/30 transition-all shadow-lg active:scale-95">
-                 <HelpCircle size={18} />
-                 <span className="text-sm font-semibold">Rules</span>
-              </button>
-           </DialogTrigger>
-           <DialogContent className="bg-slate-900 border-white/10 text-slate-200 max-w-2xl max-h-[85vh] overflow-y-auto">
-              <DialogHeader>
-                 <DialogTitle className="text-2xl font-bold flex items-center gap-2 mb-4">
-                    <Info className="text-primary" /> Rules of Barricade Tactics
-                 </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6 text-sm leading-relaxed">
-                 <section className="space-y-2">
-                    <h3 className="text-white font-semibold flex items-center gap-2">
-                       <ChevronRight size={14} className="text-primary" /> Objective
-                    </h3>
-                    <p>Be the first to reach the <strong className="text-yellow-500">Finish Node</strong> at the top center with the required number of pawns.</p>
-                 </section>
-                 <section className="space-y-2">
-                    <h3 className="text-white font-semibold flex items-center gap-2">
-                       <ChevronRight size={14} className="text-primary" /> Movement & Capturing
-                    </h3>
-                    <p>Roll the dice and move exactly that many spaces. You can move in any direction but cannot backtrack in the same turn.</p>
-                    <ul className="list-disc list-inside space-y-1 ml-2 text-slate-400">
-                       <li>Jump over other pawns.</li>
-                       <li>Landing on an opponent's pawn sends it back to its Home slot.</li>
-                       <li>Landing on a Barricade allows you to move it to any valid board node.</li>
-                    </ul>
-                 </section>
-              </div>
-           </DialogContent>
-        </Dialog>
+         <DialogContent className="bg-slate-900 border-white/10 text-slate-200 max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+               <DialogTitle className="text-2xl font-bold flex items-center gap-2 mb-4">
+                  <Info className="text-primary" /> Rules of Barricade Tactics
+               </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6 text-sm leading-relaxed">
+               <section className="space-y-2">
+                  <h3 className="text-white font-semibold flex items-center gap-2">
+                     <ChevronRight size={14} className="text-primary" /> Objective
+                  </h3>
+                  <p>Be the first to reach the <strong className="text-yellow-500">Finish Node</strong> at the top center with the required number of pawns.</p>
+               </section>
+               <section className="space-y-2">
+                  <h3 className="text-white font-semibold flex items-center gap-2">
+                     <ChevronRight size={14} className="text-primary" /> Movement & Capturing
+                  </h3>
+                  <p>Roll the dice and move exactly that many spaces. You can move in any direction but cannot backtrack in the same turn.</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2 text-slate-400">
+                     <li>Jump over other pawns.</li>
+                     <li>
+                        Landing on an opponent's pawn sends it back to its Home slot.
+                        {game.settings.playerCaptureBonus && (
+                           <span className="text-yellow-500/80 block mt-1 ml-4 italic font-medium">Bonus: You get an immediate extra roll!</span>
+                        )}
+                     </li>
+                     <li>
+                        Landing on a Barricade (white/brown) allows you to move it to any valid board node.
+                        <div className="space-y-1 mt-1 ml-4">
+                           {game.settings.barricadeCaptureBonus && (
+                              <span className="text-yellow-500/80 block italic font-medium">Bonus: You get an immediate extra roll!</span>
+                           )}
+                           {game.settings.protectBottomRow && (
+                              <span className="text-yellow-500/80 block italic font-medium">First row protection on: you cannot place barricades on the first row</span>
+                           )}
+                        </div>
+                     </li>
+                  </ul>
+               </section>
+
+               <section className="space-y-2">
+                  <h3 className="text-white font-semibold flex items-center gap-2">
+                     <ChevronRight size={14} className="text-primary" /> Finish
+                  </h3>
+                  <p className="text-slate-400">
+                     Reach the finish node with your pawns to win.
+                     <span className="text-yellow-500/80 block mt-1 italic font-medium">To win, you need to bring {game.settings.winCondition} pawn(s) to the Finish Node.</span>
+                  </p>
+               </section>
+            </div>
+         </DialogContent>
      );
 
      return (
@@ -468,12 +481,12 @@ function GamePageContent() {
                       if (isHostUser) {
                          hostSession?.processAction(action);
                       } else if (guestSession) {
-                         let reqMsg: any = null;
-                         if (action.type === 'ROLL_START') reqMsg = { type: 'requestRollDice' };
-                         if (action.type === 'MOVE') reqMsg = { type: 'requestMovePawn', pawnIdx: action.pawnIdx, target: action.target };
-                         if (action.type === 'BARRICADE') reqMsg = { type: 'requestPlaceBarricade', target: action.target };
-                         if (action.type === 'GEEN_ZETTEN_ACK') reqMsg = { type: 'requestNoMoves' };
-                         if (reqMsg) guestSession.sendToHost(reqMsg);
+                          let reqMsg: any = null;
+                          if (action.type === 'ROLL_START') reqMsg = { type: 'requestRollDice' };
+                          if (action.type === 'MOVE') reqMsg = { type: 'requestMovePawn', pawnIdx: action.pawnIdx, target: action.target };
+                          if (action.type === 'BARRICADE') reqMsg = { type: 'requestPlaceBarricade', target: action.target };
+                          if (action.type === 'GEEN_ZETTEN_ACK') reqMsg = { type: 'requestNoMoves' };
+                          if (reqMsg) guestSession.sendToHost(reqMsg);
                       }
                    }}
                 />
@@ -484,7 +497,7 @@ function GamePageContent() {
                 slots={game.slots}
                 localPlayerIndex={localPlayerIndex}
                 onAction={(action) => isHostUser ? hostSession?.processAction(action) : guestSession?.sendToHost(action)} 
-                rulesDialog={rulesMenu}
+                rulesContent={rulesMenu}
                 diceContent={diceContent}
                 isExpanded={isSidebarExpanded}
                 setIsExpanded={setIsSidebarExpanded}
@@ -521,27 +534,96 @@ function GamePageContent() {
         {isHostUser && (
           <div className="mb-2 w-full max-w-md mx-auto grid grid-cols-2 gap-2 bg-black/20 p-2 rounded-lg border border-white/5">
             <div className="flex justify-between items-center p-1 bg-white/5 rounded">
-              <span className="text-[10px] text-gray-300 font-medium">Capture Bonus</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-300 font-medium">Capture (Barricade)</span>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="text-gray-500 hover:text-white transition-colors">
+                      <HelpCircle size={10} />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-900 border-white/10 text-slate-200">
+                    <DialogHeader>
+                      <DialogTitle>Capture (Barricade) Bonus</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm">Landing on a Barricade (white/brown obstacle) allows you to roll again for an extra turn after placing it.</p>
+                  </DialogContent>
+                </Dialog>
+              </div>
               <button
-                onClick={() => hostSession?.updateSettings({ captureBonus: !game.settings.captureBonus })}
-                className={`w-8 h-4 rounded-full transition-colors relative ${game.settings.captureBonus ? 'bg-green-500' : 'bg-gray-600'}`}
+                onClick={() => hostSession?.updateSettings({ barricadeCaptureBonus: !game.settings.barricadeCaptureBonus })}
+                className={`w-8 h-4 rounded-full transition-colors relative ${game.settings.barricadeCaptureBonus ? 'bg-green-500' : 'bg-gray-600'}`}
               >
-                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${game.settings.captureBonus ? 'left-4.5' : 'left-0.5'}`} />
+                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${game.settings.barricadeCaptureBonus ? 'left-[18px]' : 'left-0.5'}`} />
               </button>
             </div>
 
             <div className="flex justify-between items-center p-1 bg-white/5 rounded">
-              <span className="text-[10px] text-gray-300 font-medium">Protect Bottom</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-300 font-medium">Capture (Player)</span>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="text-gray-500 hover:text-white transition-colors">
+                      <HelpCircle size={10} />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-900 border-white/10 text-slate-200">
+                    <DialogHeader>
+                      <DialogTitle>Capture (Player) Bonus</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm">Landing on an opponent player's pawn sends them home and gives you an immediate extra dice roll.</p>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              <button
+                onClick={() => hostSession?.updateSettings({ playerCaptureBonus: !game.settings.playerCaptureBonus })}
+                className={`w-8 h-4 rounded-full transition-colors relative ${game.settings.playerCaptureBonus ? 'bg-green-500' : 'bg-gray-600'}`}
+              >
+                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${game.settings.playerCaptureBonus ? 'left-[18px]' : 'left-0.5'}`} />
+              </button>
+            </div>
+            <div className="flex justify-between items-center p-1 bg-white/5 rounded">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-300 font-medium">Row Protection</span>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="text-gray-500 hover:text-white transition-colors">
+                      <HelpCircle size={10} />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-900 border-white/10 text-slate-200">
+                    <DialogHeader>
+                      <DialogTitle>First Row Protection</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm">Prevents barricades from being placed on the bottom (starting) row of any player. This ensures a clear path out of the home area.</p>
+                  </DialogContent>
+                </Dialog>
+              </div>
               <button
                 onClick={() => hostSession?.updateSettings({ protectBottomRow: !game.settings.protectBottomRow })}
                 className={`w-8 h-4 rounded-full transition-colors relative ${game.settings.protectBottomRow ? 'bg-green-500' : 'bg-gray-600'}`}
               >
-                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${game.settings.protectBottomRow ? 'left-4.5' : 'left-0.5'}`} />
+                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${game.settings.protectBottomRow ? 'left-[18px]' : 'left-0.5'}`} />
               </button>
             </div>
             
             <div className="flex flex-col gap-1 p-1 bg-white/5 rounded">
-              <span className="text-[9px] text-gray-400 font-bold uppercase">Win Condition</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] text-gray-400 font-bold uppercase">Win Condition</span>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="text-gray-500 hover:text-white transition-colors">
+                      <HelpCircle size={9} />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-900 border-white/10 text-slate-200">
+                    <DialogHeader>
+                      <DialogTitle>Win Condition</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm">The number of pawns you must bring to the top center finish node to win the game.</p>
+                  </DialogContent>
+                </Dialog>
+              </div>
               <div className="flex gap-1">
                 {[1, 2, 3, 4].map(n => (
                   <button
@@ -556,7 +638,26 @@ function GamePageContent() {
             </div>
 
             <div className="flex flex-col gap-1 p-1 bg-white/5 rounded">
-              <span className="text-[9px] text-gray-400 font-bold uppercase">Dice Mode</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] text-gray-400 font-bold uppercase">Dice Mode</span>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="text-gray-500 hover:text-white transition-colors">
+                      <HelpCircle size={9} />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-900 border-white/10 text-slate-200">
+                    <DialogHeader>
+                      <DialogTitle>Dice Mode</DialogTitle>
+                    </DialogHeader>
+                    <ul className="text-sm space-y-2">
+                       <li><strong>Animated:</strong> Full 3D/physics sequence for every roll.</li>
+                       <li><strong>Instant Bots:</strong> Bots skip the rolling animation to speed up the game.</li>
+                       <li><strong>Instant All:</strong> All dice rolls reveal results immediately with no animation.</li>
+                    </ul>
+                  </DialogContent>
+                </Dialog>
+              </div>
               <select 
                 value={game.settings.diceMode}
                 onChange={(e) => hostSession?.updateSettings({ diceMode: e.target.value as any })}
@@ -627,7 +728,11 @@ function GamePageContent() {
                         <SelectItem value="open">Open</SelectItem>
                         <SelectItem value="bot">Bot</SelectItem>
                         <SelectItem value="closed">Closed</SelectItem>
-                        {slot.type === 'player' && <SelectItem value="player">Player</SelectItem>}
+                        {slot.type === 'player' && (
+                          <SelectItem value="player">
+                            {slot.playerName ? `${slot.playerName} (Player)` : 'Player'}
+                          </SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

@@ -1,38 +1,32 @@
 'use client';
 
 import React from 'react';
-import { Trophy, HelpCircle, Dice5, Maximize, Minimize, ChevronRight } from 'lucide-react';
+import { Trophy, HelpCircle, Dice5, Maximize, Minimize, ChevronRight, ChevronLeft, Info } from 'lucide-react';
 import { BoardState } from '@/lib/types';
 import { StaticDice, DiceDots, RollingDice } from './dice';
 import { useFullscreen } from '@/hooks/use-fullscreen';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface SidebarProps {
   state: BoardState;
   slots: { id: number, connectionId?: string, type: string, playerName?: string, color: string }[];
   localPlayerIndex: number;
   onAction: (action: any) => void;
-  rulesDialog: React.ReactNode;
-  diceContent: React.ReactNode;
-}
-
-interface SidebarProps {
-  state: BoardState;
-  slots: { id: number, connectionId?: string, type: string, playerName?: string, color: string }[];
-  localPlayerIndex: number;
-  onAction: (action: any) => void;
-  rulesDialog: React.ReactNode;
+  rulesContent: React.ReactNode;
   diceContent: React.ReactNode;
   isExpanded: boolean;
   setIsExpanded: (val: boolean) => void;
   isMobile: boolean;
 }
 
+
+
 export function Sidebar({ 
   state, 
   slots, 
   localPlayerIndex, 
   onAction, 
-  rulesDialog, 
+  rulesContent, 
   diceContent,
   isExpanded,
   setIsExpanded,
@@ -56,13 +50,8 @@ export function Sidebar({
   if (!isExpanded && isMobile) {
     return (
       <div 
-        className="sidebar-container fixed right-0 top-0 h-full w-[7rem] bg-slate-900/90 backdrop-blur-md border-l border-white/10 flex flex-col items-center py-2 gap-4 shadow-2xl z-50 transition-all cursor-pointer"
-        onClick={() => setIsExpanded(true)}
+        className="sidebar-container fixed right-0 top-0 h-full w-[7rem] bg-slate-900/90 backdrop-blur-md border-l border-white/10 flex flex-col items-center py-2 gap-4 shadow-2xl z-50 transition-all"
       >
-        <button className="flex items-center justify-center p-1 text-white/30 hover:text-white transition-colors">
-          <ChevronRight className="w-4 h-4 rotate-180" />
-        </button>
-
         <div className="flex flex-col items-center gap-1 mt-2 w-full">
           <div className="px-2 py-0.5 rounded-full bg-slate-800 border border-white/5 text-[10px] font-bold text-primary animate-pulse mb-1">
             {statusLabels[state.status] || state.status}
@@ -86,8 +75,8 @@ export function Sidebar({
               >
                  <div className="flex items-center gap-2 min-w-0">
                     {lastThrow ? (
-                      <div className="shrink-0 scale-[0.6] origin-left">
-                        <StaticDice value={lastThrow} color={slot.color} size={6} />
+                      <div className="shrink-0 origin-left">
+                        <StaticDice value={lastThrow} color={slot.color} size={7} />
                       </div>
                     ) : (
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: slot.color }} />
@@ -104,27 +93,39 @@ export function Sidebar({
           })}
         </div>
 
-        <button 
-          onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-          className="p-1.5 text-white/30 hover:text-white transition-colors"
-        >
-          {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
-        </button>
+        <div className="flex items-center justify-around w-full mt-auto pt-2 border-t border-white/5 px-1">
+          {isMobile && (
+            <>
+              <button 
+                onClick={() => setIsExpanded(true)}
+                className="p-1 text-white/30 hover:text-white transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+                className="p-1 text-white/30 hover:text-white transition-colors"
+              >
+                {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+              </button>
+            </>
+          )}
+          <Dialog>
+             <DialogTrigger asChild>
+                <button className="p-1 text-white/40 hover:text-white transition-colors">
+                   <HelpCircle size={18} />
+                </button>
+             </DialogTrigger>
+             {rulesContent}
+          </Dialog>
+        </div>
       </div>
     );
   }
 
   return (
     <div className={`sidebar-container ${isMobile ? 'fixed right-0 top-0 w-52 shadow-[0_0_50px_rgba(0,0,0,0.5)]' : 'relative w-80'} h-full bg-slate-900 border-l border-white/10 flex flex-col p-2 md:p-6 gap-2 md:gap-8 z-50 overflow-y-auto transition-all`}>
-      {/* Header with Collapse Button (Mobile Only) */}
-      {isMobile && (
-        <button 
-          onClick={() => setIsExpanded(false)}
-          className="absolute left-1 top-2 p-1 text-white/30 hover:text-white transition-colors z-20"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      )}
+
 
       {/* Game Status Card */}
       <div className={`sidebar-status-card bg-white/5 rounded-2xl p-2 md:p-5 border border-white/5 flex flex-row items-center justify-between gap-4 w-full ${isMobile ? 'mt-6' : ''}`}>
@@ -142,7 +143,7 @@ export function Sidebar({
       </div>
 
       {/* Score Tracker */}
-      <div className="space-y-1 md:space-y-4 flex-grow overflow-hidden">
+      <div className="space-y-1 md:space-y-4 flex-grow overflow-y-auto custom-scrollbar pr-1">
         <div className="text-[8px] md:text-xs font-bold text-slate-500 uppercase tracking-widest">
           Leaderboard
         </div>
@@ -159,9 +160,9 @@ export function Sidebar({
                 >
                    <div className="flex items-center gap-2 min-w-0">
                       {lastThrow ? (
-                        <div className="shrink-0 scale-[0.6] origin-left">
-                          <StaticDice value={lastThrow} color={slot.color} size={6} />
-                        </div>
+                       <div className="shrink-0 origin-left">
+                         <StaticDice value={lastThrow} color={slot.color} size={isMobile ? 7 : 10} />
+                       </div>
                       ) : (
                         <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: slot.color }} />
                       )}
@@ -181,23 +182,33 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Rules / Footer */}
       <div className="pt-2 border-t border-white/5">
-        <div className="flex gap-2">
-          {isMobile ? (
-             <button 
-              onClick={() => setIsExpanded(false)}
-              className="flex items-center justify-center p-2 bg-slate-900/80 backdrop-blur-md rounded-xl border border-white/10 text-white/50 w-full"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : rulesDialog}
-          <button 
-            onClick={toggleFullscreen}
-            className="flex items-center justify-center p-2 bg-slate-900/80 backdrop-blur-md rounded-xl border border-white/10 text-white/70 hover:text-white"
-          >
-            {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-          </button>
+        <div className="flex items-center justify-around w-full px-2">
+          {isMobile && (
+            <>
+              <button 
+                onClick={() => setIsExpanded(false)}
+                className="p-1 text-white/40 hover:text-white transition-colors"
+              >
+                <ChevronRight size={18} />
+              </button>
+              <button 
+                onClick={toggleFullscreen}
+                className="p-1 text-white/40 hover:text-white transition-colors"
+              >
+                {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+              </button>
+            </>
+          )}
+          <Dialog>
+             <DialogTrigger asChild>
+                <button className="flex items-center justify-center gap-2 px-3 py-1.5 bg-slate-900/40 text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition-all text-xs font-semibold">
+                   <HelpCircle size={14} />
+                   <span>Rules</span>
+                </button>
+             </DialogTrigger>
+             {rulesContent}
+          </Dialog>
         </div>
       </div>
     </div>

@@ -13,7 +13,7 @@ export const DICE_PIPS: Record<number, number[][]> = {
 
 export function DiceDots({ value, color, size }: { value: number; color: string; size: number }) {
   const pips = DICE_PIPS[value] || DICE_PIPS[1];
-  const dotR = size * 0.08;
+  const dotR = size * 0.1;
   return (
     <>
       {pips.map(([px, py], i) => (
@@ -38,18 +38,22 @@ export function RollingDice({ color, diceMode, size = 12 }: { color: string; dic
   }, [diceMode]);
   
   return (
-    <svg viewBox="-0.4 -0.4 0.8 0.8" className="animate-spin" style={{ width: `${size * 0.25}rem`, height: `${size * 0.25}rem`, animationDuration: '0.6s' }}>
-      <rect x={-0.4} y={-0.4} width={0.8} height={0.8} fill="#1e293b" rx={0.12} stroke={color} strokeWidth={0.05} />
+    <svg viewBox="-0.5 -0.5 1.0 1.0" className="animate-spin" style={{ width: `${size * 0.25}rem`, height: `${size * 0.25}rem`, animationDuration: '0.6s' }}>
+      <rect x={-0.45} y={-0.45} width={0.9} height={0.9} fill="#0f172a" rx={0.2} stroke={color} strokeWidth={0.08} />
       <DiceDots value={face} color={color} size={0.8} />
     </svg>
   );
 }
 
-export function StaticDice({ value, color, size = 6 }: { value: number; color: string; size?: number }) {
+export function StaticDice({ value, color, size = 6, showQuestion = false }: { value: number; color: string; size?: number; showQuestion?: boolean }) {
     return (
-        <svg viewBox="-0.4 -0.4 0.8 0.8" style={{ width: `${size * 0.25}rem`, height: `${size * 0.25}rem` }}>
-            <rect x={-0.4} y={-0.4} width={0.8} height={0.8} fill="#1e293b" rx={0.12} stroke={color} strokeWidth={0.05} />
-            <DiceDots value={value} color={color} size={0.8} />
+        <svg viewBox="-0.5 -0.5 1.0 1.0" style={{ width: `${size * 0.25}rem`, height: `${size * 0.25}rem` }}>
+            <rect x={-0.45} y={-0.45} width={0.9} height={0.9} fill="#0f172a" rx={0.2} stroke={color} strokeWidth={0.08} />
+            {showQuestion ? (
+              <text x="0" y="0.25" fontSize="0.7" fontWeight="black" textAnchor="middle" fill={color} style={{ pointerEvents: 'none' }}>?</text>
+            ) : (
+              <DiceDots value={value} color={color} size={0.8} />
+            )}
         </svg>
     )
 }

@@ -24,7 +24,8 @@ export interface Pawn {
 export type GameStatus = "MENU_TOTAAL" | "WACHT_OP_DOBBELSTEEN" | "DOBBELEN" | "SPELEN" | "PLAATS_BARRICADE" | "GEEN_ZETTEN" | "GAME_OVER" | "PAUZE_MENU";
 
 export interface GameSettings {
-    captureBonus: boolean;
+    barricadeCaptureBonus: boolean;
+    playerCaptureBonus: boolean;
     winCondition: number;
     diceMode: 'animated' | 'instant_bots' | 'instant';
     protectBottomRow: boolean;

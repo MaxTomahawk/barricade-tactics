@@ -320,7 +320,7 @@ export function processGameAction(state: BoardState, playerIndex: number, totalP
             state.opgepakteBarricadePos = action.target;
             state.status = "PLAATS_BARRICADE";
             // Check for bonus turn flag
-            if (state.settings.captureBonus) {
+            if (state.settings.barricadeCaptureBonus) {
                 state.lastMoveHadCapture = true;
             }
             return true;
@@ -341,7 +341,7 @@ export function processGameAction(state: BoardState, playerIndex: number, totalP
             }
         }
 
-        if (capturedPawn && state.settings.captureBonus) {
+        if (capturedPawn && state.settings.playerCaptureBonus) {
             state.lastMoveHadCapture = true;
         }
         

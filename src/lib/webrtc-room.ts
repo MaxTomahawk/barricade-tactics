@@ -86,7 +86,8 @@ export function startHostSession(args: {
   onStatusUpdated?: (status: string) => void;
 }): HostSession {
   const defaultSettings: GameSettings = {
-    captureBonus: false,
+    barricadeCaptureBonus: true,
+    playerCaptureBonus: true,
     winCondition: 1,
     diceMode: 'animated',
     protectBottomRow: true,
