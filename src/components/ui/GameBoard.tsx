@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { BoardState, Position, PlayerColor, Pawn, GameStatus } from '@/lib/types';
 import { vindZetten, posToStr } from '@/lib/game-logic/engine';
+import { DiceDots, RollingDice } from './dice';
 
 interface GameBoardProps {
   state: BoardState;
@@ -30,49 +31,6 @@ const STATIC_COLORS = {
 
 const BORD_ROWS = 11;
 const BORD_COLS = 23;
-
-// Standard die pip positions for a square centered at origin, size = s
-const DICE_PIPS: Record<number, [number, number][]> = {
-  1: [[0, 0]],
-  2: [[-0.22, -0.22], [0.22, 0.22]],
-  3: [[-0.22, -0.22], [0, 0], [0.22, 0.22]],
-  4: [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]],
-  5: [[-0.22, -0.22], [0.22, -0.22], [0, 0], [-0.22, 0.22], [0.22, 0.22]],
-  6: [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0], [0.22, 0], [-0.22, 0.22], [0.22, 0.22]],
-};
-
-function DiceDots({ value, color, size }: { value: number; color: string; size: number }) {
-  const pips = DICE_PIPS[value] || DICE_PIPS[1];
-  const dotR = size * 0.08;
-  return (
-    <>
-      {pips.map(([px, py], i) => (
-        <circle key={i} cx={px} cy={py} r={dotR} fill={color} />
-      ))}
-    </>
-  );
-}
-
-function RollingDice({ color, diceMode }: { color: string; diceMode: string }) {
-  const [face, setFace] = useState(1);
-  
-  useEffect(() => {
-    if (diceMode === 'instant' || diceMode === 'instant_bots') {
-      setFace(Math.floor(Math.random() * 6) + 1);
-      return;
-    }
-    const interval = setInterval(() => {
-      setFace(Math.floor(Math.random() * 6) + 1);
-    }, 80);
-    return () => clearInterval(interval);
-  }, [diceMode]);
-  
-  return (
-    <svg viewBox="-0.4 -0.4 0.8 0.8" className="w-12 h-12 animate-spin" style={{ animationDuration: '0.6s' }}>
-      <DiceDots value={face} color={color} size={0.8} />
-    </svg>
-  );
-}
 
 function usePawnPositions(pawns: Pawn[]) {
   const [displayPos, setDisplayPos] = useState<Record<number, {cx: number, cy: number, arcOffset: number}>>({});
@@ -193,8 +151,6 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
 
   const handleRollClick = () => {
     if (!isMyTurn || state.status !== 'WACHT_OP_DOBBELSTEEN') return;
-    // Technically Guest sends this to Host, and Host resolves it and responds with ROLL_END.
-    // For pure UI speed, we emit ROLL_START, wait a random time, then Host emits ROLL_END
     onAction({ type: 'ROLL_START' });
   };
 
@@ -224,24 +180,7 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
   }, []);
 
   return (
-    <>
-      <div className="portrait:flex landscape:hidden fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex-col items-center justify-center p-8 text-center overscroll-none">
-          <div className="rotate-90 text-white mb-6">
-              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Rotate Device</h2>
-          <p className="text-slate-400 font-medium text-lg max-w-[280px]">Barricade is designed to be played in landscape mode. Please rotate your device to continue.</p>
-      </div>
-
-      <div className="portrait:hidden fixed inset-0 w-full h-[100dvh] max-w-none flex flex-col items-center justify-center select-none bg-slate-900 overflow-hidden shadow-2xl z-0">
-        <div className="absolute top-2 left-4 right-4 flex justify-between items-center text-slate-200 uppercase tracking-widest text-xs font-bold z-10 pointer-events-none">
-          <div>
-            Status: <span className="text-white">{STATUS_MAP[state.status] || state.status.replace(/_/g, ' ')}</span>
-          </div>
-          <div>
-             Turn: Player {state.beurt + 1}
-          </div>
-        </div>
+    <div className="w-full h-full flex flex-col items-center justify-center select-none bg-slate-900 shadow-2xl overflow-hidden relative z-0">
         
         <svg viewBox={`-1 -0.5 ${BORD_COLS + 2} ${BORD_ROWS + 4.5}`} className="w-full h-full max-h-[100dvh] drop-shadow-xl overflow-visible mx-auto shrink-0 z-0">
           {/* Draw Path Lines manually filtering out the fan base spread */}
@@ -266,11 +205,13 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                 <g key={`home-links-${c}`} stroke={STATIC_COLORS.path} strokeWidth={0.15} strokeLinecap="round">
                    {/* Entry to split */}
                    <line x1={cx} y1={10.5} x2={cx} y2={11.5} />
-                   {/* Horizontal bridge */}
-                   <line x1={cx - 1} y1={11.5} x2={cx + 1} y2={11.5} />
+                   {/* Horizontal bridge (top) */}
+                   <line x1={cx - 0.5} y1={11.5} x2={cx + 0.5} y2={11.5} />
                    {/* Vertical pillars */}
-                   <line x1={cx - 1} y1={11.5} x2={cx - 1} y2={12.5} />
-                   <line x1={cx + 1} y1={11.5} x2={cx + 1} y2={12.5} />
+                   <line x1={cx - 0.5} y1={11.5} x2={cx - 0.5} y2={12.5} />
+                   <line x1={cx + 0.5} y1={11.5} x2={cx + 0.5} y2={12.5} />
+                   {/* Horizontal bridge (bottom) */}
+                   <line x1={cx - 0.5} y1={12.5} x2={cx + 0.5} y2={12.5} />
                 </g>
              );
           })}
@@ -295,8 +236,6 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                // Marking finish progress if more than 1 pin needed
                const finishedForThisPlayer = state.pionnen.filter(p => p.playerIndex === k.speler_start && p.isFinished).length;
                
-               // We need a way to stable-index these 4 start nodes. 
-               // Let's sort all start nodes for this player and pick the first N.
                const playerStartNodes = Object.values(state.graph)
                   .filter(n => n.is_start && n.speler_start === k.speler_start)
                   .sort((a,b) => a.c !== b.c ? a.c - b.c : a.r - b.r);
@@ -390,78 +329,15 @@ export function GameBoard({ state, slots, localPlayerIndex, onAction }: GameBoar
                 </g>
              );
           })}
-
-           {/* Dice History Nodes */}
-          {(state.activePlayerIndices || []).map((slotId, idx) => {
-              const roll = state.laatsteWorpen[slotId];
-              if (!roll) return null;
-              const cx = (state.startCols?.[idx] ?? 11) + 0.5;
-             const nameStr = slots?.[slotId]?.playerName || (slots?.[slotId]?.type === 'bot' ? 'Bot' : `Player ${slotId+1}`);
-             const isActive = state.pionnen.some(p => p.playerIndex === slotId);
-             
-             return (
-                <g key={`history-${slotId}`} transform={`translate(${cx}, ${BORD_ROWS + 3.5})`}>
-                   {isActive && <text x={0} y={-1.0} fill={slots?.find(s => s.id === slotId)?.color || "rgba(255,255,255,0.8)"} fontSize={0.3} fontFamily="sans-serif" fontWeight="bold" textAnchor="middle" style={{ textTransform: 'uppercase' }}>{nameStr}</text>}
-                   
-                   {roll ? (
-                       <>
-                           <rect x={-0.4} y={-0.4} width={0.8} height={0.8} fill="#1e293b" rx={0.12} stroke={slots?.find(s => s.id === slotId)?.color} strokeWidth={0.05} />
-                           <DiceDots value={roll} color={slots?.find(s => s.id === slotId)?.color || '#fff'} size={0.8} />
-                       </>
-                   ) : null}
-                </g>
-             );
-          })}
         </svg>
         
-        {/* Dice & Interactions */}
-        {(state.status === "WACHT_OP_DOBBELSTEEN" || state.status === "DOBBELEN" || state.status === "SPELEN" || state.status === "PLAATS_BARRICADE" || state.status === "GEEN_ZETTEN") && (() => {
-            const currentColor = slots?.find(s => s.id === state.beurt)?.color || '#fff';
-            
-            return (
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center z-20 shrink-0">
-              {state.status === "PLAATS_BARRICADE" ? (
-                  <div className="w-20 h-20 bg-slate-800/80 border-4 border-amber-700 rounded-2xl flex items-center justify-center shadow-xl">
-                      <svg viewBox="0 0 24 24" className="w-10 h-10">
-                          <rect x="4" y="4" width="16" height="16" rx="3" fill={STATIC_COLORS.barricade} stroke="#451a03" strokeWidth="1.5" />
-                          <text x="12" y="16" fill="white" fontSize="9" fontWeight="bold" textAnchor="middle">B</text>
-                      </svg>
-                  </div>
-              ) : state.status === "WACHT_OP_DOBBELSTEEN" && isMyTurn ? (
-                  <button onClick={handleRollClick} className="w-20 h-20 bg-slate-800 border-4 rounded-2xl shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer" style={{ borderColor: currentColor }}>
-                     <svg viewBox="-0.4 -0.4 0.8 0.8" className="w-12 h-12">
-                         <DiceDots value={6} color={currentColor} size={0.8} />
-                     </svg>
-                  </button>
-              ) : (
-                  <div className="w-20 h-20 bg-slate-800/80 border-4 rounded-2xl flex items-center justify-center shadow-inner relative overflow-hidden" style={{ borderColor: currentColor }}>
-                      {state.status === 'DOBBELEN' ? (
-                          <RollingDice color={currentColor} diceMode={state.settings.diceMode} />
-                      ) : state.dobbelsteen > 0 ? (
-                          <svg viewBox="-0.4 -0.4 0.8 0.8" className="w-12 h-12">
-                              <DiceDots value={state.dobbelsteen} color={currentColor} size={0.8} />
-                          </svg>
-                      ) : null}
-                  </div>
-              )}
-              
-              {state.status === "GEEN_ZETTEN" && isMyTurn && (
-                  <button onClick={() => onAction({ type: 'GEEN_ZETTEN_ACK' })} className="mt-4 px-6 py-2 bg-red-600 text-white rounded-full font-bold animate-bounce shadow-xl">
-                     No Moves Possible (Finish Turn)
-                  </button>
-              )}
-            </div>
-            );
-        })()}
-        
         {state.status === "GAME_OVER" && (
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center rounded-xl animate-in fade-in zoom-in">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center rounded-xl animate-in fade-in zoom-in z-50">
                 <h2 className="text-4xl font-black uppercase tracking-widest bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent drop-shadow-2xl mb-8">
                     Player {state.winnaar! + 1} Wins!
                 </h2>
             </div>
         )}
       </div>
-    </>
   );
 }
