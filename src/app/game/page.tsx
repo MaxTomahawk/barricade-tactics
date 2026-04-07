@@ -399,8 +399,11 @@ function GamePageContent() {
      const diceContent = (
         <div className="flex flex-col items-center">
           {bs.status === "PLAATS_BARRICADE" ? (
-            <div className="w-20 h-20 bg-amber-800 border-4 border-amber-600 rounded-3xl flex items-center justify-center shadow-2xl scale-110">
-               <span className="text-2xl font-black text-white">B</span>
+            <div 
+              className="w-20 h-20 rounded-xl flex items-center justify-center shadow-2xl scale-110 border-4"
+              style={{ backgroundColor: '#854d0e', borderColor: '#451a03' }}
+            >
+               <span className="text-3xl font-black" style={{ color: '#451a03' }}>B</span>
             </div>
           ) : bs.status === "WACHT_OP_DOBBELSTEEN" && localPlayerIndex === bs.beurt ? (
             <button 
