@@ -107,6 +107,41 @@ function GamePageContent() {
 
   const lastProcessedRef = useRef<string>('');
 
+  const localPlayerIndex = useMemo(() => {
+    if (!game) return -1;
+    if (!!hostSession) return 0;
+    if (typeof window === 'undefined') return -1;
+    const raw = localStorage.getItem('barricadeSession');
+    if (!raw) return -1;
+    try {
+      const session = JSON.parse(raw);
+      const mySlot = game.slots.find(s => s.playerName === session.playerName);
+      return mySlot ? mySlot.id : -1;
+    } catch(e) { return -1; }
+  }, [game, hostSession]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      
+      if (e.key === ' ' || e.key === 'Enter') {
+        const bs = game?.boardState;
+        if (bs?.status === 'WACHT_OP_DOBBELSTEEN' && localPlayerIndex === bs.beurt) {
+          e.preventDefault();
+          if (hostSession) hostSession.processAction({ type: 'ROLL_START' });
+          else if (guestSession) guestSession.sendToHost({ type: 'requestRollDice' });
+        } else if (bs?.status === 'GEEN_ZETTEN' && localPlayerIndex === bs.beurt) {
+          e.preventDefault();
+          if (hostSession) hostSession.processAction({ type: 'GEEN_ZETTEN_ACK' });
+          else if (guestSession) guestSession.sendToHost({ type: 'requestNoMoves' });
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [game?.boardState, localPlayerIndex, hostSession, guestSession]);
+
   useEffect(() => {
     if (!roomId) {
       setIsLoading(false);
@@ -358,16 +393,6 @@ function GamePageContent() {
 
   if (game.boardState) {
      const bs = game.boardState;
-     let localPlayerIndex = -1;
-     if (isHostUser) localPlayerIndex = 0;
-     else {
-         const raw = localStorage.getItem('barricadeSession');
-         if (raw) {
-            const sessionName = JSON.parse(raw).playerName;
-            const mySlot = game.slots.find(s => s.playerName === sessionName);
-            if (mySlot) localPlayerIndex = mySlot.id;
-         }
-     }
 
      const currentColor = game.slots[bs.beurt]?.color || '#ffffff';
 
