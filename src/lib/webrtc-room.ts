@@ -76,6 +76,8 @@ export function normalizeRoomId(value: string): string {
 
 import { processGameAction } from './game-logic/engine';
 
+import { GAME_COLORS } from './constants';
+
 export function startHostSession(args: {
   roomId: string;
   gameName: string;
@@ -94,18 +96,22 @@ export function startHostSession(args: {
     extraRollAfterBarricade: false,
   };
 
+  // Shuffle colors for initial randomization
+  const shuffledColors = [...GAME_COLORS].sort(() => Math.random() - 0.5);
+
   const game: GameState = args.initialGame || {
     id: sanitizeRoomId(args.roomId),
     gameName: args.gameName,
     slots: [
-      { id: 0, type: 'host', playerName: args.hostName, connectionId: '', color: '#ef4444' }, // Red
-      { id: 1, type: 'open', color: '#22c55e' }, // Green
-      { id: 2, type: 'open', color: '#3b82f6' }, // Blue
-      { id: 3, type: 'open', color: '#eab308' }, // Yellow
+      { id: 0, type: 'host', playerName: args.hostName, connectionId: '', color: shuffledColors[0] },
+      { id: 1, type: 'open', color: shuffledColors[1] },
+      { id: 2, type: 'open', color: shuffledColors[2] },
+      { id: 3, type: 'open', color: shuffledColors[3] },
     ],
     settings: defaultSettings,
     boardState: undefined,
   };
+
 
   args.onStatusUpdated?.('Contacting PeerJS Server...');
   let peer: Peer;
@@ -291,14 +297,28 @@ export function startHostSession(args: {
       }
     }
 
+    const previousColor = slot.color;
     slot.type = type;
     if (pName !== undefined) slot.playerName = pName;
-    if (color !== undefined) slot.color = color;
+    
+    if (color !== undefined && color !== previousColor) {
+      // Color swap logic: if picking a color that another slot has, swap them.
+      // This is especially for 'closed' and 'open' slots according to the requirements.
+      const otherSlotIndex = game.slots.findIndex(s => s.id !== index && s.color === color);
+      if (otherSlotIndex !== -1) {
+        const otherSlot = game.slots[otherSlotIndex];
+        // Swapping: the other slot gets the current slot's previous color
+        otherSlot.color = previousColor;
+      }
+      slot.color = color;
+    }
+
     if (type === 'open' || type === 'bot' || type === 'closed') {
        slot.connectionId = undefined;
     }
     broadcast();
   };
+
 
   // Error handler was moved into initPeer()
 

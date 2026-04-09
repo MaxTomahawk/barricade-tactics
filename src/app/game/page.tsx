@@ -11,18 +11,8 @@ import { HelpCircle, Trophy, ChevronRight, Info, Dice5, Maximize, Minimize } fro
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useDynamicFavicon } from '@/hooks/use-dynamic-favicon';
 
-const GAME_COLORS = [
-  '#ef4444', // Red
-  '#22c55e', // Green
-  '#3b82f6', // Blue
-  '#eab308', // Yellow
-  '#a855f7', // Purple
-  '#f97316', // Orange
-  '#06b6d4', // Cyan
-  '#ec4899', // Pink
-  '#84cc16', // Lime
-  '#6366f1'  // Indigo
-];
+import { GAME_COLORS, TAILWIND_COLOR_MAP } from '@/lib/constants';
+
 
 function ColorPicker({ 
   current, 
@@ -44,7 +34,8 @@ function ColorPicker({
         />
       </PopoverTrigger>
       <PopoverContent className="w-48 bg-slate-900 border-white/10 p-2">
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-4 gap-2">
+
           {GAME_COLORS.map(c => {
             const isUsed = used.includes(c) && c !== current;
             return (
@@ -163,18 +154,7 @@ function GamePageContent() {
     ? game.slots[localPlayerIndex].color
     : (game?.slots[0]?.color || '#ef4444');
 
-  const TAILWIND_COLOR_MAP: Record<string, string> = {
-    'bg-red-500': '#ef4444',
-    'bg-green-500': '#22c55e',
-    'bg-blue-500': '#3b82f6',
-    'bg-yellow-500': '#eab308',
-    'bg-purple-500': '#a855f7',
-    'bg-orange-500': '#f97316',
-    'bg-cyan-500': '#06b6d4',
-    'bg-pink-500': '#ec4899',
-    'bg-lime-500': '#84cc16',
-    'bg-indigo-500': '#6366f1',
-  };
+
 
   const activePlayerColor = TAILWIND_COLOR_MAP[activePlayerColorRaw] || activePlayerColorRaw;
   useDynamicFavicon(activePlayerColor);
