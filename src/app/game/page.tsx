@@ -408,7 +408,17 @@ function GamePageContent() {
 
     if (activeSlot && activeSlot.type === 'bot') {
        let delay = 1000;
-       if (game.settings.diceMode === 'instant' || game.settings.diceMode === 'instant_bots') delay = 50;
+       const isInstantMode = game.settings.diceMode === 'instant' || game.settings.diceMode === 'instant_bots';
+       
+       // Only skip the "thinking" pause for the roll itself if instant mode is on.
+       // For moving pawns or placing barricades, we keep the 1s delay so the movement animation 
+       // has time to play out and the user can actually see the bot's tactical choice.
+       // We use 600ms here (instead of 50ms) to ensure the previous pawn's move animation (400ms) 
+       // always finishes before the next roll start is triggered by the bot.
+       if (isInstantMode && bs.status === 'WACHT_OP_DOBBELSTEEN') {
+           delay = 600;
+       }
+
        const timer = setTimeout(() => {
            if (bs.status === 'WACHT_OP_DOBBELSTEEN') {
                hostSession.processAction({ type: 'ROLL_START' });
