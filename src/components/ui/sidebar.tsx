@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Trophy, HelpCircle, Dice5, Maximize, Minimize, ChevronRight, ChevronLeft, Info, Home, RotateCcw } from 'lucide-react';
 import { BoardState } from '@/lib/types';
 import { StaticDice, DiceDots, RollingDice } from './dice';
@@ -34,6 +35,7 @@ export function Sidebar({
   isMobile
 }: SidebarProps) {
   const activeSlot = slots[state.beurt];
+  const router = useRouter();
   const { isFullscreen, toggleFullscreen } = useFullscreen();
   const isMyTurn = state.beurt === localPlayerIndex;
   
@@ -108,7 +110,7 @@ export function Sidebar({
               <RotateCcw size={20} />
             </button>
             <button 
-              onClick={() => window.location.href = '/'}
+              onClick={() => router.push('/')}
               className="w-full aspect-square bg-slate-800 hover:bg-slate-700 rounded-xl flex items-center justify-center text-white/70 hover:text-white shadow-lg transition-all active:scale-95 border border-white/5"
               title="Main Menu"
             >
@@ -232,7 +234,7 @@ export function Sidebar({
                 Play Again
               </button>
               <button 
-                onClick={() => window.location.href = '/'}
+                onClick={() => router.push('/')}
                 className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white/80 hover:text-white font-bold py-2 rounded-xl border border-white/10 transition-all active:scale-95 text-xs"
               >
                 <Home size={14} />

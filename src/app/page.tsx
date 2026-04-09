@@ -120,8 +120,8 @@ function HomeContent() {
                 variant="outline" 
                 className="w-full border-dashed border-primary/40 hover:border-primary/80 hover:bg-primary/5 group"
                 onClick={() => {
-                   // Redirect to game with the last room code (relative for base path support)
-                   window.location.href = `game?roomId=${lastRoomCode}`;
+                   // Use router.push for better base path support
+                   router.push(`/game?roomId=${lastRoomCode}`);
                 }}
               >
                 <div className="flex flex-col items-center">
