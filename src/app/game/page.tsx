@@ -92,7 +92,8 @@ function GamePageContent() {
   const shutdownRef = useRef<null | (() => void)>(null);
   const signaledRef = useRef(false);
   const passwordRef = useRef('');
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [isLeftSidebarExpanded, setIsLeftSidebarExpanded] = useState(false);
+  const [isRightSidebarExpanded, setIsRightSidebarExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
 
@@ -133,7 +134,8 @@ function GamePageContent() {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
       // Default to expanded on desktop, collapsed on mobile
-      setIsSidebarExpanded(!mobile);
+      setIsLeftSidebarExpanded(!mobile);
+      setIsRightSidebarExpanded(!mobile);
     };
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -616,9 +618,26 @@ function GamePageContent() {
        <div className="true-fullscreen overflow-hidden bg-slate-950 relative">
           {reconnectingOverlay}
           <div className="forced-landscape w-full h-full flex overflow-hidden">
+             <Sidebar 
+                state={bs}
+                slots={game.slots}
+                localPlayerIndex={localPlayerIndex}
+                onAction={(action) => isHostUser ? hostSession?.processAction(action) : guestSession?.sendToHost(action)} 
+                isExpanded={isLeftSidebarExpanded}
+                setIsExpanded={setIsLeftSidebarExpanded}
+                isMobile={isMobile}
+                side="left"
+                showFullscreen={true}
+             />
+
              <div 
                className="flex-grow relative overflow-hidden flex items-center justify-center cursor-pointer"
-               onClick={() => isMobile && isSidebarExpanded && setIsSidebarExpanded(false)}
+               onClick={() => {
+                 if (isMobile) {
+                    setIsLeftSidebarExpanded(false);
+                    setIsRightSidebarExpanded(false);
+                 }
+               }}
              >
                 <GameBoard 
                    state={bs} 
@@ -646,9 +665,10 @@ function GamePageContent() {
                 onAction={(action) => isHostUser ? hostSession?.processAction(action) : guestSession?.sendToHost(action)} 
                 rulesContent={rulesMenu}
                 diceContent={diceContent}
-                isExpanded={isSidebarExpanded}
-                setIsExpanded={setIsSidebarExpanded}
+                isExpanded={isRightSidebarExpanded}
+                setIsExpanded={setIsRightSidebarExpanded}
                 isMobile={isMobile}
+                side="right"
              />
           </div>
        </div>
