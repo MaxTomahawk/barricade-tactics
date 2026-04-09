@@ -101,7 +101,7 @@ export function vindZetten(start_pos: Position, state: BoardState): Position[] {
     for (const zStr of zetten) {
         const [r, c] = zStr.split(',').map(Number);
         
-        const bezet_door_eigen = state.pionnen.some(p => p.playerIndex === state.beurt && p.pos.r === r && p.pos.c === c);
+        const bezet_door_eigen = state.pionnen.some(p => p.playerIndex === state.beurt && p.pos.r === r && p.pos.c === c && !p.isFinished);
         if (!bezet_door_eigen) {
             geldige_zetten.push({ r, c });
         }
@@ -329,7 +329,7 @@ export function processGameAction(state: BoardState, playerIndex: number, totalP
         // Eat opponent pawn
         let capturedPawn = false;
         for (const other of state.pionnen) {
-            if (other.id !== p.id && other.pos.r === action.target.r && other.pos.c === action.target.c) {
+            if (other.id !== p.id && !other.isFinished && other.pos.r === action.target.r && other.pos.c === action.target.c) {
                 const startNodes = Object.values(state.graph).filter((n: any) => n.is_start && n.speler_start === other.playerIndex);
                 for (const sn of startNodes) {
                     if (!state.pionnen.some(op => op.pos.r === sn.r && op.pos.c === sn.c)) {
@@ -348,6 +348,7 @@ export function processGameAction(state: BoardState, playerIndex: number, totalP
         // Check finish
         if (action.target.r === FINISH_POS.r && action.target.c === FINISH_POS.c) {
             p.isFinished = true;
+            p.pos = { r: -1, c: -1 }; // Move off-board to free the finish node
             const finishedCount = state.pionnen.filter(pion => pion.playerIndex === state.beurt && pion.isFinished).length;
             if (finishedCount >= (state.settings.winCondition || 1)) {
                 state.status = "GAME_OVER";
