@@ -135,6 +135,8 @@ function GamePageContent() {
 
   const lastProcessedRef = useRef<string>('');
 
+  const [lastDicePositionInCorner, setLastDicePositionInCorner] = useState(false);
+
   const localPlayerIndex = useMemo(() => {
     if (!game) return -1;
     if (!!hostSession) return 0;
@@ -160,6 +162,15 @@ function GamePageContent() {
   useDynamicFavicon(activePlayerColor);
 
   useEffect(() => {
+    if (game?.boardState) {
+      const bs = game.boardState;
+      if (localPlayerIndex === bs.beurt) {
+        setLastDicePositionInCorner(bs.status === 'PLAATS_BARRICADE' || bs.status === 'SPELEN');
+      }
+    }
+  }, [game?.boardState?.status, game?.boardState?.beurt, localPlayerIndex]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
       
@@ -180,6 +191,28 @@ function GamePageContent() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [game?.boardState, localPlayerIndex, hostSession, guestSession]);
+
+  useEffect(() => {
+    if (game?.boardState?.status === 'WACHT_OP_DOBBELSTEEN' && game.boardState.beurt === localPlayerIndex) {
+      const playTurnSound = () => {
+        try {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.1);
+          gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+          oscillator.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          oscillator.start();
+          oscillator.stop(audioCtx.currentTime + 0.1);
+        } catch (e) {}
+      };
+      playTurnSound();
+    }
+  }, [game?.boardState?.beurt, localPlayerIndex]);
 
   useEffect(() => {
     if (!roomId) {
@@ -493,53 +526,6 @@ function GamePageContent() {
 
      const currentColor = game.slots[bs.beurt]?.color || '#ffffff';
 
-     const diceContent = (
-        <div className="flex flex-col items-center">
-          {bs.status === "PLAATS_BARRICADE" ? (
-            <div 
-              className="w-20 h-20 rounded-xl flex items-center justify-center shadow-2xl scale-110 border-4"
-              style={{ backgroundColor: '#854d0e', borderColor: '#451a03' }}
-            >
-               <span className="text-3xl font-black" style={{ color: '#451a03' }}>B</span>
-            </div>
-          ) : bs.status === "WACHT_OP_DOBBELSTEEN" && localPlayerIndex === bs.beurt ? (
-            <button 
-              onClick={() => {
-                 if (isHostUser) hostSession?.processAction({ type: 'ROLL_START' });
-                 else guestSession?.sendToHost({ type: 'requestRollDice' });
-              }} 
-              className="hover:scale-110 active:scale-95 transition-all cursor-pointer" 
-            >
-              <StaticDice color={currentColor} size={20} value={0} showQuestion={true} />
-            </button>
-          ) : (
-            <div className="relative">
-              {bs.status === 'DOBBELEN' ? (
-                <RollingDice color={currentColor} diceMode={game.settings.diceMode} size={20} />
-              ) : bs.dobbelsteen > 0 ? (
-                <StaticDice value={bs.dobbelsteen} color={currentColor} size={20} />
-              ) : (
-                <div className="w-20 h-20 bg-slate-800/40 border-4 border-white/5 rounded-3xl flex items-center justify-center opacity-20">
-                  <Dice5 className="w-10 h-10 text-white" />
-                </div>
-              )}
-            </div>
-          )}
-          
-          {bs.status === "GEEN_ZETTEN" && localPlayerIndex === bs.beurt && (
-            <button 
-              onClick={() => {
-                 if (isHostUser) hostSession?.processAction({ type: 'GEEN_ZETTEN_ACK' });
-                 else guestSession?.sendToHost({ type: 'requestNoMoves' });
-              }} 
-              className="mt-6 px-6 py-2.5 bg-red-600 text-white rounded-full text-sm font-bold animate-bounce shadow-2xl"
-            >
-              No Moves (Finish)
-            </button>
-          )}
-        </div>
-     );
-
      const rulesMenu = (
          <DialogContent className="bg-slate-900 border-white/10 text-slate-200 max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
@@ -636,6 +622,78 @@ function GamePageContent() {
                       }
                    }}
                 />
+
+                {/* Dynamic Dice Popup Overlay */}
+                <div className="absolute inset-0 pointer-events-none z-40">
+                   {(bs.status === "WACHT_OP_DOBBELSTEEN" || bs.status === "DOBBELEN" || bs.status === "PLAATS_BARRICADE" || bs.status === "GEEN_ZETTEN" || bs.status === "SPELEN") && (
+                     <div 
+                       className={`absolute transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] transform origin-top-right ${
+                         localPlayerIndex === bs.beurt 
+                           ? (bs.status === 'PLAATS_BARRICADE' || bs.status === 'SPELEN')
+                             ? 'top-8 right-8 translate-x-0 translate-y-0 scale-[0.35] opacity-100' 
+                             : 'top-1/2 right-1/2 translate-x-1/2 -translate-y-1/2 scale-100 opacity-100'
+                           : lastDicePositionInCorner
+                             ? 'top-8 right-8 translate-x-0 translate-y-0 scale-[0.35] opacity-0 pointer-events-none'
+                             : 'top-1/2 right-1/2 translate-x-1/2 -translate-y-1/2 scale-90 opacity-0 pointer-events-none'
+                       }`}
+                     >
+                        <div className={`bg-slate-900/60 backdrop-blur-3xl border border-white/10 ${ (bs.status === 'PLAATS_BARRICADE' || bs.status === 'SPELEN') ? 'p-6 rounded-[2rem]' : 'p-12 rounded-[3.5rem]'} shadow-[0_0_100px_rgba(0,0,0,0.5)] flex flex-col items-center gap-8 pointer-events-auto animate-in zoom-in duration-300`}>
+                           <div className="flex flex-col items-center">
+                             {bs.status === "PLAATS_BARRICADE" ? (
+                               <div 
+                                 className="w-32 h-32 rounded-3xl flex items-center justify-center shadow-2xl border-4"
+                                 style={{ backgroundColor: '#854d0e', borderColor: '#451a03' }}
+                               >
+                                  <span className="text-6xl font-black" style={{ color: '#451a03' }}>B</span>
+                               </div>
+                             ) : bs.status === "WACHT_OP_DOBBELSTEEN" && localPlayerIndex === bs.beurt ? (
+                               <button 
+                                 onClick={() => {
+                                    if (isHostUser) hostSession?.processAction({ type: 'ROLL_START' });
+                                    else guestSession?.sendToHost({ type: 'requestRollDice' });
+                                 }} 
+                                 className="hover:scale-110 active:scale-95 transition-all cursor-pointer group relative" 
+                               >
+                                 <div className="absolute -inset-8 bg-primary/20 rounded-full blur-2xl animate-pulse group-hover:bg-primary/40 transition-all"></div>
+                                 <StaticDice color={currentColor} size={40} value={0} showQuestion={true} />
+                               </button>
+                             ) : bs.status === "DOBBELEN" ? (
+                                game.settings.diceMode === 'instant' ? (
+                                  <StaticDice value={bs.dobbelsteen} color={currentColor} size={40} />
+                                ) : (
+                                  <RollingDice color={currentColor} diceMode={game.settings.diceMode} size={40} />
+                                )
+                             ) : bs.status === "SPELEN" ? (
+                                <StaticDice value={bs.dobbelsteen} color={currentColor} size={40} />
+                             ) : null}
+                             
+                             {!(bs.status === 'PLAATS_BARRICADE' || bs.status === 'SPELEN') && (
+                                <div className="mt-8 flex flex-col items-center gap-2">
+                                   <span className="text-xs font-black uppercase tracking-[0.3em] text-white/40">
+                                      Your Turn
+                                   </span>
+                                   <span className="text-lg font-bold text-white">
+                                      {bs.status === "WACHT_OP_DOBBELSTEEN" ? "Roll the die" : bs.status === "DOBBELEN" ? "Rolling..." : "Secure a path"}
+                                   </span>
+                                </div>
+                             )}
+                           </div>
+
+                           {bs.status === "GEEN_ZETTEN" && localPlayerIndex === bs.beurt && (
+                             <button 
+                               onClick={() => {
+                                  if (isHostUser) hostSession?.processAction({ type: 'GEEN_ZETTEN_ACK' });
+                                  else guestSession?.sendToHost({ type: 'requestNoMoves' });
+                               }} 
+                               className="px-10 py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl text-lg font-black uppercase tracking-widest animate-bounce shadow-[0_0_30px_rgba(220,38,38,0.4)] transition-all pointer-events-auto"
+                             >
+                               No Moves (Finish)
+                             </button>
+                           )}
+                        </div>
+                     </div>
+                   )}
+                </div>
              </div>
 
              <Sidebar 
@@ -644,7 +702,6 @@ function GamePageContent() {
                 localPlayerIndex={localPlayerIndex}
                 onAction={(action) => isHostUser ? hostSession?.processAction(action) : guestSession?.sendToHost(action)} 
                 rulesContent={rulesMenu}
-                diceContent={diceContent}
                 isExpanded={isRightSidebarExpanded}
                 setIsExpanded={setIsRightSidebarExpanded}
                 isMobile={isMobile}

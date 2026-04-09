@@ -87,7 +87,27 @@ export function Sidebar({
                   className={`flex items-center justify-between p-1.5 md:p-3 rounded-lg transition-all w-full ${isTurn ? 'bg-primary/10 border border-primary/20' : 'bg-white/5 border border-white/5'}`}
                 >
                    <div className="flex items-center gap-2 min-w-0">
-                      {lastThrow ? (
+                      {isTurn && state.status === 'DOBBELEN' ? (
+                        <div className="shrink-0 origin-left">
+                          <RollingDice color={slot.color} diceMode={state.settings.diceMode} size={7} />
+                        </div>
+                      ) : isTurn && state.status === 'WACHT_OP_DOBBELSTEEN' ? (
+                        <div className="shrink-0 origin-left">
+                          <StaticDice value={0} color={slot.color} size={7} showQuestion={true} />
+                        </div>
+                      ) : isTurn && state.status === 'PLAATS_BARRICADE' ? (
+                        <div 
+                          className="rounded-sm flex items-center justify-center shrink-0 border-2"
+                          style={{ 
+                            backgroundColor: '#854d0e', 
+                            borderColor: '#451a03',
+                            width: '1.75rem',
+                            height: '1.75rem'
+                          }}
+                        >
+                           <span className="text-[10px] font-black" style={{ color: '#451a03' }}>B</span>
+                        </div>
+                      ) : lastThrow ? (
                         <div className="shrink-0 origin-left">
                           <StaticDice value={lastThrow} color={slot.color} size={7} />
                         </div>
@@ -192,10 +212,30 @@ export function Sidebar({
                     className={`flex items-center justify-between p-1.5 md:p-3 rounded-lg transition-all ${isTurn ? 'bg-primary/10 border border-primary/20' : 'bg-white/5 border border-white/5'}`}
                   >
                      <div className="flex items-center gap-2 min-w-0">
-                        {lastThrow ? (
-                         <div className="shrink-0 origin-left">
-                           <StaticDice value={lastThrow} color={slot.color} size={isMobile ? 7 : 10} />
-                         </div>
+                        {isTurn && state.status === 'DOBBELEN' ? (
+                          <div className="shrink-0 origin-left">
+                            <RollingDice color={slot.color} diceMode={state.settings.diceMode} size={isMobile ? 7 : 10} />
+                          </div>
+                        ) : isTurn && state.status === 'WACHT_OP_DOBBELSTEEN' ? (
+                          <div className="shrink-0 origin-left">
+                            <StaticDice value={0} color={slot.color} size={isMobile ? 7 : 10} showQuestion={true} />
+                          </div>
+                        ) : isTurn && state.status === 'PLAATS_BARRICADE' ? (
+                          <div 
+                            className="rounded-sm flex items-center justify-center shrink-0 border-2"
+                            style={{ 
+                              backgroundColor: '#854d0e', 
+                              borderColor: '#451a03',
+                              width: isMobile ? '1.75rem' : '2.5rem',
+                              height: isMobile ? '1.75rem' : '2.5rem'
+                            }}
+                          >
+                             <span className="text-[10px] md:text-xs font-black" style={{ color: '#451a03' }}>B</span>
+                          </div>
+                        ) : lastThrow ? (
+                          <div className="shrink-0 origin-left">
+                            <StaticDice value={lastThrow} color={slot.color} size={isMobile ? 7 : 10} />
+                          </div>
                         ) : (
                           <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: slot.color }} />
                         )}
