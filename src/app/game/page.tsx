@@ -823,20 +823,22 @@ function GamePageContent() {
                 </div>
                 <div className="lobby-grid-2col">
                   {/* Capture Barricade */}
-                  <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
-                    <div className="flex items-center gap-1.5 lg:gap-2 overflow-hidden">
-                      <span className="text-[10px] lg:text-xs text-white/60 font-bold uppercase tracking-wider truncate">Capture (B)</span>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <button className="text-white/20 hover:text-white transition-colors flex-shrink-0">
-                            <HelpCircle size={14} />
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="bg-slate-900 border-white/10 text-slate-200">
-                          <DialogHeader><DialogTitle>Capture (Barricade) Bonus</DialogTitle></DialogHeader>
-                          <p className="text-sm">Landing on a Barricade allows you to roll again for an extra turn after placing it.</p>
-                        </DialogContent>
-                      </Dialog>
+                  <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5 min-h-[64px] lg:min-h-[72px] gap-2">
+                    <div className="flex-grow leading-tight">
+                      <span className="text-[9px] lg:text-[10px] text-white/30 font-black uppercase tracking-[0.2em] inline-block">
+                        Capture (Barricade)
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button className="inline-flex items-center ml-1.5 text-white/20 hover:text-white transition-colors align-middle -mt-0.5">
+                              <HelpCircle size={10} />
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent className="bg-slate-900 border-white/10 text-slate-200">
+                            <DialogHeader><DialogTitle>Capture (Barricade) Bonus</DialogTitle></DialogHeader>
+                            <p className="text-sm">Landing on a Barricade allows you to roll again for an extra turn after placing it.</p>
+                          </DialogContent>
+                        </Dialog>
+                      </span>
                     </div>
                     <button
                       onClick={() => hostSession?.updateSettings({ barricadeCaptureBonus: !game.settings.barricadeCaptureBonus })}
@@ -847,20 +849,22 @@ function GamePageContent() {
                   </div>
 
                   {/* Capture Player */}
-                  <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
-                    <div className="flex items-center gap-1.5 lg:gap-2 overflow-hidden">
-                      <span className="text-[10px] lg:text-xs text-white/60 font-bold uppercase tracking-wider truncate">Capture (P)</span>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <button className="text-white/20 hover:text-white transition-colors flex-shrink-0">
-                            <HelpCircle size={14} />
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="bg-slate-900 border-white/10 text-slate-200">
-                          <DialogHeader><DialogTitle>Capture (Player) Bonus</DialogTitle></DialogHeader>
-                          <p className="text-sm">Landing on an opponent's pawn sends them home and gives you an extra roll.</p>
-                        </DialogContent>
-                      </Dialog>
+                  <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5 min-h-[64px] lg:min-h-[72px] gap-2">
+                    <div className="flex-grow leading-tight">
+                      <span className="text-[9px] lg:text-[10px] text-white/30 font-black uppercase tracking-[0.2em] inline-block">
+                        Capture (Player)
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button className="inline-flex items-center ml-1.5 text-white/20 hover:text-white transition-colors align-middle -mt-0.5">
+                              <HelpCircle size={10} />
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent className="bg-slate-900 border-white/10 text-slate-200">
+                            <DialogHeader><DialogTitle>Capture (Player) Bonus</DialogTitle></DialogHeader>
+                            <p className="text-sm">Landing on an opponent's pawn sends them home and gives you an extra roll.</p>
+                          </DialogContent>
+                        </Dialog>
+                      </span>
                     </div>
                     <button
                       onClick={() => hostSession?.updateSettings({ playerCaptureBonus: !game.settings.playerCaptureBonus })}
@@ -870,21 +874,23 @@ function GamePageContent() {
                     </button>
                   </div>
 
-                  {/* Start Protection */}
-                  <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
-                    <div className="flex items-center gap-1.5 lg:gap-2 overflow-hidden">
-                      <span className="text-[10px] lg:text-xs text-white/60 font-bold uppercase tracking-wider truncate">Row Protect</span>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <button className="text-white/20 hover:text-white transition-colors flex-shrink-0">
-                            <HelpCircle size={14} />
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="bg-slate-900 border-white/10 text-slate-200">
-                          <DialogHeader><DialogTitle>First Row Protection</DialogTitle></DialogHeader>
-                          <p className="text-sm">Prevents barricades from being placed on the starting row of any player.</p>
-                        </DialogContent>
-                      </Dialog>
+                  {/* Row Protection */}
+                  <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5 min-h-[64px] lg:min-h-[72px] gap-2">
+                    <div className="flex-grow leading-tight">
+                      <span className="text-[9px] lg:text-[10px] text-white/30 font-black uppercase tracking-[0.2em] inline-block">
+                        Row Protect
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button className="inline-flex items-center ml-1.5 text-white/20 hover:text-white transition-colors align-middle -mt-0.5">
+                              <HelpCircle size={10} />
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent className="bg-slate-900 border-white/10 text-slate-200">
+                            <DialogHeader><DialogTitle>First Row Protection</DialogTitle></DialogHeader>
+                            <p className="text-sm">Prevents barricades from being placed on the starting row of any player.</p>
+                          </DialogContent>
+                        </Dialog>
+                      </span>
                     </div>
                     <button
                       onClick={() => hostSession?.updateSettings({ protectBottomRow: !game.settings.protectBottomRow })}
