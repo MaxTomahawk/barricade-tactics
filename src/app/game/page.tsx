@@ -742,7 +742,7 @@ function GamePageContent() {
               <div className="flex items-center gap-1 pl-2 border-l border-white/10">
                 <div className={`w-1 h-1 rounded-full ${signalingStatus.includes('Confirmed') || signalingStatus.includes('Handshaking') || signalingStatus.includes('Connected') || signalingStatus.includes('Waiting') ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} />
                 <span className={`text-[8px] uppercase tracking-tighter font-black ${signalingStatus.includes('Confirmed') || signalingStatus.includes('Handshaking') || signalingStatus.includes('Connected') || signalingStatus.includes('Waiting') ? 'text-green-500' : 'text-yellow-500'}`}>
-                  {signalingStatus.includes('Confirmed') || signalingStatus.includes('Handshaking') || signalingStatus.includes('Connected') || signalingStatus.includes('Waiting') ? 'Live' : 'Connect'}
+                  {signalingStatus.includes('Confirmed') || signalingStatus.includes('Handshaking') || signalingStatus.includes('Connected') || signalingStatus.includes('Waiting') ? 'Connected' : 'Connecting'}
                 </span>
               </div>
             </div>
