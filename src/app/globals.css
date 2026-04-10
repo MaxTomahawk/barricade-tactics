@@ -125,8 +125,8 @@ body {
     overflow: hidden;
   }
 
-  /* Force Radix Portals to rotate 90deg to match the scene */
-  div[data-radix-portal] {
+  /* Force Radix Portals to rotate 90deg only if the scene is in forced landscape mode */
+  body:has(.forced-landscape) div[data-radix-portal] {
     position: fixed;
     width: 100dvh;
     height: 100vw;
@@ -138,7 +138,7 @@ body {
     z-index: 9999;
   }
   
-  div[data-radix-portal] > * {
+  body:has(.forced-landscape) div[data-radix-portal] > * {
     pointer-events: auto;
   }
 }
@@ -184,3 +184,61 @@ body {
     padding: 0.25rem !important;
   }
 }
+
+/* Room Setup Styles */
+.lobby-header-mobile {
+  @apply relative z-50 bg-slate-900/90 backdrop-blur-xl border-b border-white/10 p-4 flex flex-col gap-2 shadow-2xl;
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .lobby-header-mobile {
+    display: flex;
+  }
+  .lobby-desktop-header {
+    display: none;
+  }
+  .lobby-scroll-area {
+    @apply pb-24;
+    height: 100%;
+    width: 100%;
+    overflow-y: auto;
+  }
+  .lobby-container {
+    @apply pt-4 px-1.5;
+  }
+  .lobby-section {
+    @apply p-2.5;
+  }
+  .lobby-grid-2col {
+    @apply gap-1;
+  }
+  .lobby-players-grid {
+    @apply gap-1;
+  }
+}
+
+.lobby-container {
+  @apply flex flex-col items-center w-full max-w-2xl mx-auto gap-4 py-8;
+}
+
+.lobby-section {
+  @apply w-full bg-slate-900/40 border border-white/5 rounded-2xl p-4 lg:p-6 backdrop-blur-sm shadow-xl flex flex-col gap-4;
+}
+
+.lobby-grid-2col {
+  @apply grid grid-cols-2 lg:grid-cols-3 gap-2 lg:gap-4;
+}
+
+.lobby-players-grid {
+  @apply grid grid-cols-2 gap-2 lg:gap-4;
+}
+
+.lobby-section-title {
+  @apply text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-2 flex items-center gap-2;
+}
+
+.copy-success-popup {
+  @apply fixed top-24 left-1/2 -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-2xl z-[100] animate-in fade-in slide-in-from-top-4 duration-300;
+}
+

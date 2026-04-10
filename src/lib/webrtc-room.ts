@@ -91,7 +91,7 @@ export function startHostSession(args: {
     barricadeCaptureBonus: true,
     playerCaptureBonus: true,
     winCondition: 1,
-    diceMode: 'animated',
+    diceMode: 'instant_bots',
     protectBottomRow: true,
     extraRollAfterBarricade: false,
   };
